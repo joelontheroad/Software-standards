@@ -171,19 +171,25 @@ fetch_or_copy "AGENTS.md" "$TARGET_DIR/AGENTS.md"
 echo "→ Updating .agents/rules/enforce-standards.md..."
 fetch_or_copy ".agents/rules/enforce-standards.md" "$TARGET_DIR/.agents/rules/enforce-standards.md"
 
-# 3. Synchronize SECURITY.md if missing
+# 3. Synchronize LICENSE if missing
+if [[ ! -f "$TARGET_DIR/LICENSE" ]]; then
+    echo "→ Creating missing LICENSE (GNU AGPLv3)..."
+    fetch_or_copy "templates/common/LICENSE" "$TARGET_DIR/LICENSE"
+fi
+
+# 4. Synchronize SECURITY.md if missing
 if [[ ! -f "$TARGET_DIR/SECURITY.md" ]]; then
     echo "→ Creating missing SECURITY.md..."
     fetch_or_copy "templates/common/SECURITY.md" "$TARGET_DIR/SECURITY.md"
 fi
 
-# 4. Synchronize .gitattributes if missing
+# 5. Synchronize .gitattributes if missing
 if [[ ! -f "$TARGET_DIR/.gitattributes" ]]; then
     echo "→ Creating missing .gitattributes..."
     fetch_or_copy "templates/common/.gitattributes" "$TARGET_DIR/.gitattributes"
 fi
 
-# 5. Check Python pyproject.toml for ruff pydocstyle configuration
+# 6. Check Python pyproject.toml for ruff pydocstyle configuration
 if [[ -f "$TARGET_DIR/pyproject.toml" ]]; then
     echo "→ Inspecting Python pyproject.toml..."
     if ! grep -q 'convention = "google"' "$TARGET_DIR/pyproject.toml" 2>/dev/null; then
@@ -201,7 +207,7 @@ if [[ -f "$TARGET_DIR/pyproject.toml" ]]; then
     fi
 fi
 
-# 6. Run compliance check
+# 7. Run compliance check
 echo "→ Running compliance audit on updated repository..."
 if [[ -n "$LOCAL_SOURCE" ]] && [[ -f "$LOCAL_SOURCE/scripts/check-compliance.py" ]]; then
     python3 "$LOCAL_SOURCE/scripts/check-compliance.py" "$TARGET_DIR" || true
