@@ -36,36 +36,114 @@ All projects governed by this standards kit:
 ## How to Use This Kit
 
 ### 1. Scaffolding a New Project (`new-project.sh`)
-To create a new, 100% standards-compliant Python utility in a single step:
 
-#### Local Development (From this repository):
-```bash
-./scripts/new-project.sh -n my-tool-name --desc "Short utility description" --install
-```
+Use the automated scaffolding script to initialize a new, 100% standards-compliant Python utility in seconds.
 
-#### Remote Development (On any laptop, workstation, or remote VM):
-Run the setup script directly from GitHub without manually cloning:
-```bash
-# Using GitHub Personal Access Token ($STANDARDS_TOKEN)
-curl -sSL -H "Authorization: Bearer $STANDARDS_TOKEN" -H "Accept: application/vnd.github.v3.raw" \
-  https://api.github.com/repos/joelontheroad/Software-standards/contents/scripts/new-project.sh | bash -s -- -n my-tool-name --install
-```
+#### A. Scaffolding into an Existing Directory / GitHub Repo (Recommended)
+If you already created and cloned a repository on GitHub (or are sitting inside an existing directory):
 
-Or via SSH git clone:
 ```bash
 git clone git@github.com:joelontheroad/Software-standards.git /tmp/standards
-/tmp/standards/scripts/new-project.sh -n my-tool-name --install
+/tmp/standards/scripts/new-project.sh \
+  --name <project-name> \
+  --desc "<Short description of your utility>" \
+  --dest . \
+  --force \
+  --install
+rm -rf /tmp/standards
+```
+*(The `--dest .` flag targets the current directory; `--force` allows scaffolding into an existing repository even if it already contains files such as an initial README or .gitignore).*
+
+#### B. Scaffolding into a New Subdirectory
+To create a brand-new folder from anywhere on your system:
+
+```bash
+git clone git@github.com:joelontheroad/Software-standards.git /tmp/standards
+/tmp/standards/scripts/new-project.sh \
+  --name <project-name> \
+  --desc "<Short description of your utility>" \
+  --install
 rm -rf /tmp/standards
 ```
 
-The script automatically:
-1. Copies all shared governance files (`LICENSE`, `SECURITY.md`, `CONTRIBUTING.md`, `.gitattributes`, `.gitignore`, `.github/workflows/`).
-2. Copies the Python starter scaffold (`pyproject.toml`, `src/app/`, `tests/`).
-3. Injects internal AI agent directives (`AGENTS.md` and `.agents/rules/enforce-standards.md`, automatically ignored by `.gitignore`).
-4. Replaces all placeholders with your project name, author details, and description.
-5. Initializes a fresh `git` repository (`main` branch).
-6. Runs [`scripts/check-compliance.py`](scripts/check-compliance.py) to guarantee `[PASS]` out of the box.
-7. Prints the ready-to-use AI prompt to give to Antigravity or your AI assistant.
+#### C. Remote One-Liner (curl + `$STANDARDS_TOKEN`)
+On any remote VM or server without cloning:
+
+```bash
+curl -sSL -H "Authorization: Bearer $STANDARDS_TOKEN" -H "Accept: application/vnd.github.v3.raw" \
+  https://api.github.com/repos/joelontheroad/Software-standards/contents/scripts/new-project.sh | bash -s -- \
+  --name <project-name> \
+  --desc "<Short description of your utility>" \
+  --dest . \
+  --force \
+  --install
+```
+
+#### D. Local Development (From inside this repository)
+```bash
+./scripts/new-project.sh -n <project-name> --desc "<Short description>" --install
+```
+
+---
+
+### `new-project.sh` CLI Flags Reference
+
+| Flag | Description | Default |
+|---|---|---|
+| `-n, --name <name>` | Project and CLI command name (kebab-case) | *Required* |
+| `-d, --dest <path>` | Destination directory path | `./<project-name>` |
+| `--desc <text>` | Short utility description | `"A standard-compliant open-source utility"` |
+| `--author <name>` | Author or organization name | `"joelontheroad"` |
+| `--email <email>` | Author email address | `"author@example.com"` |
+| `-f, --force` | Overwrite or scaffold into directory even if it contains files | `false` |
+| `--install` | Automatically create virtualenv and install in editable mode | `false` |
+| `-h, --help` | Display usage information and exit | — |
+
+---
+
+### What `new-project.sh` Does Automatically
+
+1. **Governance & Legal Files**: Copies official GNU AGPL-3.0 [`LICENSE`](LICENSE), [`SECURITY.md`](templates/common/SECURITY.md), [`CONTRIBUTING.md`](templates/common/CONTRIBUTING.md), [`.gitattributes`](templates/common/.gitattributes), and [`.gitignore`](templates/common/.gitignore).
+2. **Python Scaffold**: Copies starter codebase (`pyproject.toml`, `src/app/`, `tests/test_cli.py`).
+3. **AI Agent Directives**: Injects [`AGENTS.md`](AGENTS.md) and [`.agents/rules/enforce-standards.md`](.agents/rules/enforce-standards.md) (automatically ignored by `.gitignore` so public GitHub commits stay clean).
+4. **Configuration Customization**: Replaces all placeholders (`mytool`, author, description) across all source code, config, and HTML files.
+5. **Git Initialization**: Reinitializes or configures the Git repository (`main` branch).
+6. **Environment Setup**: If `--install` is passed, creates `.venv` and runs `pip install -e ".[dev,web]"`.
+7. **Instant Audit**: Executes [`scripts/check-compliance.py`](scripts/check-compliance.py) to guarantee **`[PASS]`** out of the box.
+8. **Generates AI Prompt**: Displays the ready-to-use prompt to hand off development to your AI coding assistant.
+
+---
+
+### AI Coding Agent Kickoff Prompt
+
+Once your project is scaffolded, open the project directory in your AI assistant (e.g., Antigravity, Claude Code, Cursor) and paste this prompt:
+
+```markdown
+/plan We are developing '<PROJECT_NAME>' in this repository.
+
+This project is governed by our 12 Open Source Software Standards defined in AGENTS.md and .agents/rules/enforce-standards.md. You MUST adhere to all 12 standards without exception:
+- Zero telemetry and local data residency (presets saved in $XDG_CONFIG_HOME/<PROJECT_NAME>/ as YAML).
+- GNU AGPL-3.0-or-later license (with SPDX headers on all files and Section 13 notice in UI/CLI).
+- Local web server bound strictly to 127.0.0.1 with ephemeral token authentication and W3C CSP headers.
+- CLI stream separation (stdout for machine data/JSON, stderr for logs/status) and NO_COLOR support.
+- Subprocess CLI tests verifying exit codes and stream separation.
+
+PURPOSE & REQUIREMENTS:
+- Name: <PROJECT_NAME>
+- Description: <SHORT DESCRIPTION OF WHAT THE UTILITY DOES>
+- Core Features:
+  1. <Describe Feature 1>
+  2. <Describe Feature 2>
+
+TASK:
+1. Review the scaffolded codebase in src/app/ and tests/.
+2. Implement the core features following stream separation, XDG preset management, and input sanitization.
+3. Add subprocess test cases in tests/ to verify CLI exit codes and stream separation.
+4. Run 'check-standards' and 'pytest' to verify complete compliance.
+
+Please present an implementation plan before writing any code.
+```
+
 
 ---
 
