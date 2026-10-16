@@ -147,38 +147,55 @@ Please present an implementation plan before writing any code.
 
 ---
 
-### 2. Synchronizing Standards into Existing Repositories (`sync-standards.sh`)
+### 2. Synchronizing Standards into Existing & Uncommitted Repositories (`sync-standards.sh`)
 
-When standards, AI agent directives, or security guidelines evolve, you can safely synchronize existing repositories without disturbing your application source code.
+When standards, AI agent directives, or security guidelines evolve—or when you want to apply these standards to an existing local project **before** it is committed or pushed to GitHub—you can safely synchronize them without disturbing your application code.
 
-#### A. Remote Update via GitHub CLI (Recommended for private repository)
-Inside any existing project directory on a machine with `gh` logged in:
+> [!NOTE]
+> Because `Software-standards` is a private repository, unauthenticated `curl raw.githubusercontent.com...` requests return `404 Not Found`. Use one of the authenticated methods below.
+
+#### A. Remote Update via GitHub CLI `gh` (Recommended for Private Repo)
+Inside any existing or uncommitted project directory on a machine with `gh` logged in:
 ```bash
-gh api -H "Accept: application/vnd.github.v3.raw" repos/joelontheroad/Software-standards/contents/scripts/sync-standards.sh | bash
+gh api -H "Accept: application/vnd.github.v3.raw" \
+  repos/joelontheroad/Software-standards/contents/scripts/sync-standards.sh | bash -s -- --force .
 ```
 
-#### B. Local Update (Using local clone on the same machine)
-Inside any existing project directory:
+#### B. Remote Update via Ephemeral SSH Clone (No Token or CLI Required)
+If Git SSH keys (`git@github.com...`) are configured on your machine:
 ```bash
-"/mnt/joelg-docs/Personal/Software Projects/Software-standards/scripts/sync-standards.sh" .
-```
-Or from the standards repository:
-```bash
-./scripts/sync-standards.sh /path/to/my-existing-project
+git clone --depth 1 git@github.com:joelontheroad/Software-standards.git /tmp/standards \
+  && /tmp/standards/scripts/sync-standards.sh --force . \
+  && rm -rf /tmp/standards
 ```
 
-#### C. Remote Update via curl (With `$STANDARDS_TOKEN`)
+#### C. Remote Update via `curl` (Using Personal Access Token)
+On headless servers, VMs, or CI runners with a token:
 ```bash
-curl -sSL -H "Authorization: Bearer $STANDARDS_TOKEN" -H "Accept: application/vnd.github.v3.raw" \
-  https://api.github.com/repos/joelontheroad/Software-standards/contents/scripts/sync-standards.sh | bash
+export GITHUB_TOKEN="ghp_yourTokenHere"  # or STANDARDS_TOKEN
+
+curl -sSL -H "Authorization: Bearer $GITHUB_TOKEN" \
+  -H "Accept: application/vnd.github.v3.raw" \
+  https://api.github.com/repos/joelontheroad/Software-standards/contents/scripts/sync-standards.sh | bash -s -- --force .
 ```
+
+#### D. Local Update (Using local clone on the same machine)
+Inside your target project directory:
+```bash
+"/mnt/joelg-docs/Personal/Software Projects/Software-standards/scripts/sync-standards.sh" --force .
+```
+Or from the `Software-standards` repository:
+```bash
+./scripts/sync-standards.sh --force /path/to/my-existing-project
+```
+*(Passing `--force` allows synchronizing even if the target folder contains uncommitted working tree changes).*
 
 #### What `sync-standards.sh` Does:
-1. **Refreshes Governance & Agent Rules**: Updates `AGENTS.md` and `.agents/rules/enforce-standards.md` with the latest directives.
-2. **Synchronizes Policies**: Adds missing `SECURITY.md` or `.gitattributes` if not already present.
+1. **Refreshes Governance & Agent Rules**: Updates `AGENTS.md` and `.agents/rules/enforce-standards.md` with the latest directives (including clickable CLI URLs and browser auto-launch).
+2. **Synchronizes Core Legal & Security Files**: Adds missing `LICENSE` (GNU AGPLv3), `SECURITY.md`, and `.gitattributes` if not already present.
 3. **Inspects Linter Configs**: Checks `pyproject.toml` for Google Style docstring rules (`pydocstyle` / `D`).
 4. **Runs Compliance Audit**: Scans the project with `check-compliance.py`.
-5. **Provides AI Refactoring Prompt**: Prints the prompt to run in your AI coding assistant to bring existing code comments and docstrings into full compliance.
+5. **Provides AI Refactoring Prompt**: Prints the prompt to run in your AI coding assistant to bring existing code into full compliance.
 
 ---
 
