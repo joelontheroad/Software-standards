@@ -151,14 +151,26 @@ Please present an implementation plan before writing any code.
 
 When standards, AI agent directives, or security guidelines evolve, you can safely synchronize existing repositories without disturbing your application source code.
 
-#### A. Remote Update (Run inside any existing project directory)
+#### A. Remote Update via GitHub CLI (Recommended for private repository)
+Inside any existing project directory on a machine with `gh` logged in:
 ```bash
-curl -fsSL https://raw.githubusercontent.com/joelontheroad/Software-standards/main/scripts/sync-standards.sh | bash
+gh api -H "Accept: application/vnd.github.v3.raw" repos/joelontheroad/Software-standards/contents/scripts/sync-standards.sh | bash
 ```
 
-#### B. Local Update (Run from this standards repository)
+#### B. Local Update (Using local clone on the same machine)
+Inside any existing project directory:
+```bash
+"/mnt/joelg-docs/Personal/Software Projects/Software-standards/scripts/sync-standards.sh" .
+```
+Or from the standards repository:
 ```bash
 ./scripts/sync-standards.sh /path/to/my-existing-project
+```
+
+#### C. Remote Update via curl (With `$STANDARDS_TOKEN`)
+```bash
+curl -sSL -H "Authorization: Bearer $STANDARDS_TOKEN" -H "Accept: application/vnd.github.v3.raw" \
+  https://api.github.com/repos/joelontheroad/Software-standards/contents/scripts/sync-standards.sh | bash
 ```
 
 #### What `sync-standards.sh` Does:

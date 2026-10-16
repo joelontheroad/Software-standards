@@ -128,28 +128,37 @@ if [[ -n "$SCRIPT_DIR" ]] && [[ -f "$SCRIPT_DIR/../AGENTS.md" ]] && [[ -f "$SCRI
     LOCAL_SOURCE="$(cd "$SCRIPT_DIR/.." && pwd)"
 fi
 
+if [[ -z "$LOCAL_SOURCE" ]]; then
+    echo "→ Standards repository not found locally. Fetching standards..."
+    TMP_SOURCE_DIR="$(mktemp -d)"
+    if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
+        gh repo clone joelontheroad/Software-standards "$TMP_SOURCE_DIR" -- --depth 1 --quiet
+    elif [[ -n "${STANDARDS_TOKEN:-}" ]]; then
+        git clone --depth 1 "https://x-access-token:${STANDARDS_TOKEN}@github.com/joelontheroad/Software-standards.git" "$TMP_SOURCE_DIR" --quiet
+    elif [[ -n "${GITHUB_TOKEN:-}" ]]; then
+        git clone --depth 1 "https://x-access-token:${GITHUB_TOKEN}@github.com/joelontheroad/Software-standards.git" "$TMP_SOURCE_DIR" --quiet
+    else
+        git clone --depth 1 "$STANDARDS_REPO_URL" "$TMP_SOURCE_DIR" --quiet || {
+            echo "Error: Failed to clone private standards repository from $STANDARDS_REPO_URL." >&2
+            echo "Tip: Ensure you are logged in with 'gh auth login' or have SSH keys configured." >&2
+            exit 1
+        }
+    fi
+    LOCAL_SOURCE="$TMP_SOURCE_DIR"
+fi
+
 fetch_or_copy() {
     local rel_path="$1"
     local dest_path="$2"
 
     mkdir -p "$(dirname "$dest_path")"
-
-    if [[ -n "$LOCAL_SOURCE" ]]; then
-        cp "$LOCAL_SOURCE/$rel_path" "$dest_path"
-    else
-        curl -fsSL "$RAW_BASE_URL/$rel_path" -o "$dest_path"
-    fi
+    cp "$LOCAL_SOURCE/$rel_path" "$dest_path"
 }
 
 if [[ "$CHECK_ONLY" = true ]]; then
     echo "→ Running standards compliance check..."
-    if [[ -n "$LOCAL_SOURCE" ]] && [[ -f "$LOCAL_SOURCE/scripts/check-compliance.py" ]]; then
+    if [[ -f "$LOCAL_SOURCE/scripts/check-compliance.py" ]]; then
         python3 "$LOCAL_SOURCE/scripts/check-compliance.py" "$TARGET_DIR" || true
-    else
-        TMP_AUDIT_SCRIPT="$(mktemp)"
-        curl -fsSL "$RAW_BASE_URL/scripts/check-compliance.py" -o "$TMP_AUDIT_SCRIPT"
-        python3 "$TMP_AUDIT_SCRIPT" "$TARGET_DIR" || true
-        rm -f "$TMP_AUDIT_SCRIPT"
     fi
     exit 0
 fi
