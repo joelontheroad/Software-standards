@@ -213,23 +213,23 @@ echo " [SUCCESS] Standards successfully synchronized into: $TARGET_DIR"
 echo "================================================================="
 echo ""
 echo "Next step: Run this prompt in Antigravity or your AI Coding Agent"
-echo "to bring all existing code into compliance with Directive 12:"
+echo "to bring all existing code into compliance with updated standards:"
 echo ""
 cat << 'EOF'
 -----------------------------------------------------------------
-/plan Review all source files in this repository against our updated
-AGENTS.md Directive 12 (In-Code Documentation & Commenting Standards).
+/plan Review this repository against our updated standards in AGENTS.md:
 
-1. Ensure each module begins with an architectural summary docstring
-   immediately following the SPDX header.
-2. Upgrade public functions and classes to Google Style docstrings (or JSDoc)
-   using lean typing without duplicate type annotations.
-3. Add '# SECURITY:' rationale comments on timing comparisons, path
-   canonicalization, and permission settings.
-4. Clean up any redundant code narrations or dead code.
-5. In pyproject.toml, ensure ruff includes "D" in lint.select and
-   pydocstyle.convention = "google".
-6. Run tests to confirm zero regressions.
+1. Directive 3 (UI Guidelines):
+   - In server startup (server.py / server.js), format launch URLs as OSC 8
+     clickable links (\033]8;;<URL>\033\\<URL>\033]8;;\033\\) with TTY / NO_COLOR fallback.
+   - Automatically open the user's default browser window on launch unless
+     suppressed or running in headless environments (CI=true, missing DISPLAY/WAYLAND_DISPLAY).
+   - Add the '--no-browser' flag to the CLI 'serve' subcommand.
+2. Directive 12 (Documentation & Comment Discipline):
+   - Ensure each module begins with an architectural summary docstring after the SPDX header.
+   - Upgrade public functions and classes to Google Style docstrings (or JSDoc).
+   - Add '# SECURITY:' rationale comments on security invariants.
+3. Run test suite and confirm zero regressions.
 -----------------------------------------------------------------
 EOF
 echo ""
