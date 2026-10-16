@@ -45,8 +45,11 @@ Options:
   -h, --help            Show this help message and exit
 
 Examples:
-  # From inside an existing project:
-  curl -fsSL https://raw.githubusercontent.com/joelontheroad/Software-standards/main/scripts/sync-standards.sh | bash
+  # Remote sync via GitHub CLI (recommended for private repository):
+  gh api -H "Accept: application/vnd.github.v3.raw" repos/joelontheroad/Software-standards/contents/scripts/sync-standards.sh | bash -s -- --force .
+
+  # Remote sync via SSH temporary clone:
+  git clone --depth 1 git@github.com:joelontheroad/Software-standards.git /tmp/standards && /tmp/standards/scripts/sync-standards.sh --force . && rm -rf /tmp/standards
 
   # From the standards kit repo targeting another folder:
   ./scripts/sync-standards.sh /path/to/my-tool
