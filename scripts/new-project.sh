@@ -27,6 +27,7 @@ DESCRIPTION="A standard-compliant open-source utility"
 AUTHOR="joelontheroad"
 EMAIL="author@example.com"
 DO_INSTALL=false
+FORCE=false
 
 show_help() {
     cat << 'EOF'
@@ -38,12 +39,14 @@ Options:
       --desc <text>       Short description of the utility
       --author <name>     Author or organization name (default: joelontheroad)
       --email <email>     Author email address (default: author@example.com)
+  -f, --force             Overwrite or scaffold into directory even if it contains files
       --install           Automatically create virtualenv and install in editable mode
   -h, --help              Show this help message and exit
 
 Examples:
   ./scripts/new-project.sh -n log-scrubber --desc "Local log file privacy scrubbing utility"
   ./scripts/new-project.sh -n data-vault --install
+  ./scripts/new-project.sh -n acu-gtune -d . --force --install
 EOF
 }
 
@@ -69,6 +72,10 @@ while [[ $# -gt 0 ]]; do
         --email)
             EMAIL="$2"
             shift 2
+            ;;
+        -f|--force)
+            FORCE=true
+            shift
             ;;
         --install)
             DO_INSTALL=true
@@ -107,14 +114,18 @@ if [[ -z "$DEST_DIR" ]]; then
     DEST_DIR="./$PROJECT_NAME"
 fi
 
-# Prevent overwriting existing directory containing files (allow empty or .git-only)
-if [[ -d "$DEST_DIR" ]]; then
+# Prevent overwriting existing directory containing files unless --force is used
+if [[ -d "$DEST_DIR" ]] && [[ "$FORCE" = false ]]; then
     NON_GIT_FILES=$(find "$DEST_DIR" -mindepth 1 -maxdepth 1 ! -name '.git' 2>/dev/null || true)
     if [[ -n "$NON_GIT_FILES" ]]; then
-        echo "Error: Target directory '$DEST_DIR' exists and contains non-git files." >&2
+        echo "Error: Target directory '$DEST_DIR' contains existing files:" >&2
+        find "$DEST_DIR" -mindepth 1 -maxdepth 1 ! -name '.git' -exec basename {} \; 2>/dev/null | head -n 10 | sed 's/^/  - /' >&2
+        echo "" >&2
+        echo "Tip: Re-run with --force (or -f) to scaffold into this directory anyway." >&2
         exit 1
     fi
 fi
+
 
 
 echo "================================================================="
