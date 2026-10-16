@@ -373,6 +373,91 @@ Every repository **MUST** maintain a `README.md` structured with the following s
 ### 12.2 Coordinated Vulnerability Disclosure (`SECURITY.md`)
 - Every repository **MUST** include a `SECURITY.md` file specifying how security researchers can disclose vulnerabilities privately (via GitHub Private Vulnerability Reporting), with a commitment to acknowledge reports within 72 hours.
 
+### 12.3 In-Code Documentation & Commenting Standards
+
+Code comments and docstrings bridge the gap between mechanical execution and human comprehension. High-quality in-code documentation is essential for maintainability, security audits, and reliable AI-assisted pair programming.
+
+#### 12.3.1 Philosophy: Explaining Intent ("Why, Not What")
+- Code describes *what* is executed and *how*; comments **MUST** explain *why* (architectural intent, non-obvious business logic, performance trade-offs, security invariants, or OS-specific quirks).
+- Comments **MUST NOT** merely restate or paraphrase the code. Redundant comments that narrate obvious syntax (e.g., `total += 1  # Add 1 to total`) add noise and **MUST** be avoided.
+- Expressive variable naming, small single-responsibility functions, and explicit static type annotations are the primary tools for self-documenting code. Comments **MUST NOT** be used as a patch for unreadable code—refactor the code first.
+
+#### 12.3.2 Module & File-Level Docstrings
+- Every source file **MUST** begin with the mandatory SPDX license header ([Category 2.2](#22-spdx-machine-readable-headers-reuse-specification)), followed immediately by a module-level docstring or top-level block comment.
+- The module docstring **MUST** succinctly summarize the file's primary architectural responsibility, scope, and any major invariants:
+  ```python
+  # SPDX-FileCopyrightText: 2026 [Author/Organization]
+  # SPDX-License-Identifier: AGPL-3.0-or-later
+
+  """Configuration schema and XDG preset management for the application."""
+  ```
+
+#### 12.3.3 Public Contract Documentation (Google Style & JSDoc)
+- All public modules, public classes, public functions/methods, and CLI command handlers **MUST** have structured contract documentation.
+- **Python**: **MUST** adhere to the **Google Python Style Guide** docstring format ([PEP 257](https://peps.python.org/pep-0257/) compliant).
+- **Node / JavaScript / TypeScript**: **MUST** adhere to standard **JSDoc 3** / **TSDoc** block comments (`/** ... */`).
+- **POSIX Shell**: Functions **MUST** be preceded by a comment describing purpose, arguments (`$1`, `$2`), environment variables consumed, and exit status.
+
+#### 12.3.4 Lean Typing Synergy (Zero Type Redundancy)
+- When static type hints (Python `typing`, TypeScript, or Pydantic/Zod schemas) are present in the signature, docstrings **MUST NOT** duplicate the type identifier.
+- Focus parameter documentation strictly on semantic meaning, valid ranges, units of measurement, or constraints:
+  ```python
+  # CORRECT: Lean Google Style (Types in signature, semantic description in docstring)
+  def sanitize_log_path(path: str, max_depth: int = 5) -> str:
+      """Scrub local username and home directory from log strings.
+
+      Args:
+          path: The raw filesystem path string to sanitize.
+          max_depth: Maximum directory traversal depth to scrub.
+
+      Returns:
+          Sanitized path string with the user home directory replaced by '~<USER>'.
+      """
+  ```
+  ```javascript
+  // CORRECT: Lean JSDoc (TypeScript or Zod handles types, JSDoc describes semantics)
+  /**
+   * Resolve and canonicalize preset file path within the allowed presets directory.
+   *
+   * @param {string} presetName - Kebab-case identifier of the preset.
+   * @returns {string} Absolute, canonicalized path to the preset YAML file.
+   * @throws {Error} If path traversal outside presets directory is detected.
+   */
+  ```
+
+#### 12.3.5 Side Effects, Exceptions & Security Invariants
+- Functions that perform I/O, mutate state, acquire locks, or raise explicit runtime errors **MUST** document these behaviors using `Raises:` (Python) or `@throws` (JSDoc).
+- Security-critical logic (e.g. constant-time string comparison, path canonicalization, permission bitmasking) **MUST** include an explanatory inline comment citing the invariant:
+  ```python
+  # SECURITY: Use constant-time comparison to prevent timing side-channel attacks on launch tokens
+  if not secrets.compare_digest(candidate_token, expected_token):
+      raise PermissionError("Invalid token")
+  ```
+
+#### 12.3.6 Standardized Annotation Tags
+- Actionable tracking comments **MUST** follow standardized uppercase tags:
+  - `TODO(username or #issue): <actionable task>`: Planned work with explicit owner or issue reference.
+  - `FIXME: <description>`: Known fragility, temporary workaround, or bug requiring imminent resolution.
+  - `NOTE: <description>`: Essential architectural context or non-obvious prerequisite for future maintainers.
+  - `SECURITY: <rationale>`: Explicit declaration of security invariant or defense-in-depth measure.
+- **No Dead Code**: Commented-out blocks of dead code are **STRICTLY PROHIBITED** in committed files. Version control history preserves past implementations.
+
+#### 12.3.7 Linter & Static Analysis Exemption Discipline
+- Whenever suppressing a linter, type-checker, or security scanner warning (e.g., `# noqa`, `# type: ignore`, `/* eslint-disable-next-line */`, `# shellcheck disable=SC...`), the suppression comment **MUST** include an inline justification explaining why the exception is safe:
+  ```python
+  # noqa: S101 - Assertions are guaranteed safe in unit test fixtures
+  assert result.exit_code == 0
+  ```
+  ```bash
+  # shellcheck disable=SC2086 - Word splitting is intentional for passing discrete CLI arguments
+  exec "$CLI_BIN" $EXTRA_FLAGS "$@"
+  ```
+
+#### 12.3.8 AI Agent Comment Hygiene & Preservation
+- AI coding agents **MUST NOT** strip, truncate, or overwrite existing docstrings, explanatory comments, or license notices during refactoring or code generation.
+- AI coding agents **MUST NOT** generate conversational narrative comments (e.g., `# Now we initialize the variable`, `# Next step: loop through items`).
+- When modifying function signatures or return types, AI agents **MUST** immediately synchronize the associated docstring parameter documentation.
+
 ---
 
 ## Appendix: RFC-2119 Conformance Terminology

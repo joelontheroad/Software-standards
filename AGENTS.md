@@ -91,3 +91,14 @@
 ## 12. Documentation & DX
 - **README Structure**: Project Title, Badges (AGPLv3), 3-step Quickstart, CLI Flags Reference table, YAML configuration sample, AGPLv3 statement.
 - **Security Policy**: Maintain a `SECURITY.md` defining private vulnerability reporting.
+- **In-Code Comments & Docstrings**:
+  - Every source file MUST have a module docstring immediately following the SPDX header summarizing architectural purpose.
+  - Public classes, functions, and CLI commands MUST have structured docstrings (Google Style for Python, JSDoc for Node).
+  - Lean typing: Do NOT duplicate type annotations in docstrings when static types are present in the signature.
+  - "Why, Not What": Comments MUST explain architectural intent, business rules, edge cases, or security invariants (`# SECURITY:`). NEVER narrate obvious code syntax.
+  - Standard tags: `TODO(user|#issue):`, `FIXME:`, `NOTE:`, `SECURITY:`. Commented-out dead code is STRICTLY PROHIBITED.
+  - Linter suppressions (`# noqa`, `# shellcheck disable`) MUST include an inline explanation of why it is safe.
+- **Comment Preservation & Hygiene**:
+  - NEVER delete, truncate, or overwrite existing docstrings, explanatory comments, or license notices during refactoring.
+  - NEVER generate conversational narrative filler (`# Now we do...`).
+  - Keep docstring parameters and return contracts synchronized when modifying signatures.

@@ -29,6 +29,11 @@ EMAIL="author@example.com"
 DO_INSTALL=false
 FORCE=false
 
+#######################################
+# Print command-line usage summary and options reference.
+# Outputs:
+#   Writes help documentation to stdout.
+#######################################
 show_help() {
     cat << 'EOF'
 Usage: new-project.sh -n <project-name> [options]
@@ -134,6 +139,9 @@ echo "================================================================="
 
 # Determine source location: Local checkout vs. Remote clone
 TMP_SOURCE_DIR=""
+#######################################
+# Clean up temporary cloned repository on script termination or error.
+#######################################
 cleanup() {
     if [[ -n "$TMP_SOURCE_DIR" ]] && [[ -d "$TMP_SOURCE_DIR" ]]; then
         rm -rf "$TMP_SOURCE_DIR"

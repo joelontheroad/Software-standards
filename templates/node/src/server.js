@@ -16,6 +16,12 @@ import { loadPreset, savePreset } from './config.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+/**
+ * Instantiate and configure an authenticated, security-hardened Hono application instance.
+ *
+ * @param {string} [authToken] - Optional pre-shared 256-bit hexadecimal launch token.
+ * @returns {{ app: Hono, serverToken: string }} Configured Hono app and active token.
+ */
 export function createApp(authToken) {
   const app = new Hono();
   const serverToken = authToken || crypto.randomBytes(32).toString('hex');
@@ -23,6 +29,7 @@ export function createApp(authToken) {
   // W3C CSP & Security Headers Middleware
   app.use('*', async (c, next) => {
     await next();
+    // SECURITY: Disallow framing, MIME-sniffing, and external CDNs
     c.header(
       'Content-Security-Policy',
       "default-src 'self'; script-src 'self' 'unsafe-inline'; " +
@@ -34,7 +41,12 @@ export function createApp(authToken) {
     c.header('Referrer-Policy', 'no-referrer');
   });
 
-  // Authentication helper
+  /**
+   * Verify the ephemeral launch token from query parameters, authorization header, or cookie.
+   *
+   * @param {import('hono').Context} c - Hono request context.
+   * @returns {boolean} True if the client presents a valid token, False otherwise.
+   */
   function isAuthorized(c) {
     const queryToken = c.req.query('token');
     const authHeader = c.req.header('Authorization');
@@ -46,6 +58,7 @@ export function createApp(authToken) {
     const candidate = queryToken || bearerToken || cookieToken;
     if (!candidate) return false;
     try {
+      // SECURITY: timingSafeEqual prevents timing side-channel attacks on the launch token
       return crypto.timingSafeEqual(Buffer.from(candidate), Buffer.from(serverToken));
     } catch {
       return false;
@@ -86,10 +99,17 @@ export function createApp(authToken) {
   return { app, serverToken };
 }
 
+/**
+ * Launch the local HTTP server strictly bound to localhost.
+ *
+ * @param {number} [port=8080] - Port number to bind.
+ * @param {string} [host='127.0.0.1'] - Host interface to bind.
+ */
 export function runLocalServer(port = 8080, host = '127.0.0.1') {
   const token = crypto.randomBytes(32).toString('hex');
   const { app } = createApp(token);
 
+  // Print launch token exclusively to stderr to leave stdout clean for piping
   process.stderr.write(`\n[mytool-node] Local server running at: http://${host}:${port}/?token=${token}\n`);
   process.stderr.write(`[mytool-node] Bound strictly to localhost for privacy and security. Press Ctrl+C to exit.\n\n`);
 

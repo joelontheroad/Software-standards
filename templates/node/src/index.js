@@ -20,12 +20,15 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, '../package.json'), 'utf-8'));
 
-// Signal handler for clean exit on SIGINT
+// Signal handler: Cleanly exit on SIGINT with POSIX status code 130
 process.on('SIGINT', () => {
   process.stderr.write('\n[mytool-node] Interrupted by user. Exiting.\n');
   process.exit(130);
 });
 
+/**
+ * Display command-line usage information and options reference on stderr.
+ */
 function printHelp() {
   process.stderr.write(`
 mytool-node v${pkg.version} (${pkg.license})
@@ -47,6 +50,9 @@ Commands:
 `);
 }
 
+/**
+ * Primary CLI dispatcher evaluating command-line arguments and routing commands.
+ */
 async function main() {
   const args = process.argv.slice(2);
 
@@ -75,7 +81,7 @@ async function main() {
   }
 
   if (command === 'serve') {
-    // Lazy load server module to keep basic CLI execution fast (<200ms)
+    // Lazy load server module to keep basic CLI startup fast (<200ms)
     const { runLocalServer } = await import('./server.js');
     const portIndex = args.indexOf('--port');
     const port = portIndex !== -1 ? parseInt(args[portIndex + 1], 10) : 8080;

@@ -20,8 +20,9 @@ from app.config import (
 
 
 def setup_signal_handlers() -> None:
-    """Gracefully handle SIGINT and SIGTERM without dumping tracebacks."""
+    """Gracefully handle SIGINT and SIGTERM without dumping unhandled tracebacks."""
     def _sig_handler(signum, frame):
+        # Flush message to stderr and terminate cleanly with standard code 130
         sys.stderr.write("\n[mytool] Process interrupted by user. Exiting.\n")
         sys.stderr.flush()
         sys.exit(130)
@@ -32,14 +33,28 @@ def setup_signal_handlers() -> None:
 
 
 def should_colorize() -> bool:
-    """Determine whether terminal ANSI colors should be emitted."""
+    """Determine whether terminal ANSI colors should be emitted.
+
+    Checks for the NO_COLOR standard environment variable before verifying
+    whether stdout is connected to an interactive TTY.
+
+    Returns:
+        True if colors are supported and allowed, False otherwise.
+    """
     if "NO_COLOR" in os.environ:
         return False
     return sys.stdout.isatty()
 
 
 def main(argv: Optional[List[str]] = None) -> int:
-    """CLI entry point function."""
+    """Execute the primary command-line interface entry point.
+
+    Args:
+        argv: Optional list of CLI argument strings. If None, sys.argv[1:] is parsed.
+
+    Returns:
+        Integer exit code: 0 for success, 1 for operational error, 2 for CLI syntax error.
+    """
     setup_signal_handlers()
 
     parser = argparse.ArgumentParser(
@@ -123,7 +138,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         parser.print_help(sys.stderr)
         return 2
 
-    # Handler: serve (Lazy import to maintain sub-200ms startup for CLI commands)
+    # Handler: serve (Lazy import to maintain sub-200ms startup latency for CLI commands)
     if args.subcommand == "serve":
         from app.server import run_local_server
         run_local_server(port=args.port, host=args.host)

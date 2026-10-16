@@ -15,4 +15,4 @@ You MUST adhere to the 12 Software Engineering Standards defined in `STANDARDS.m
 9. **Portability**: Explicit `encoding="utf-8"` on all file I/O; ISO 8601 UTC timestamps; `pathlib.Path` / `node:path`; Git LF line endings.
 10. **Performance & Process**: Fast startup (<200ms); lazy imports for web servers/heavy modules; streaming file I/O; graceful `SIGINT`/`SIGTERM` handling (exit `130`).
 11. **Composability**: Support `-` for stdin piping; `--json` flag for machine-readable output.
-12. **Documentation**: Standard 6-part `README.md`; `SECURITY.md` private disclosure policy.
+12. **Documentation**: Standard 6-part `README.md`; `SECURITY.md` private disclosure policy; structured docstrings (Google Style / JSDoc); lean typing without redundancy; "why, not what" comment discipline; strict comment preservation.

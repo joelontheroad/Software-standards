@@ -87,3 +87,6 @@ tmp/
 temp/
 scratch/
 *.tmp
+
+# Notes and Prompts
+AI-prompts-for-software-standards.txt

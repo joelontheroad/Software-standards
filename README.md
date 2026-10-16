@@ -29,7 +29,7 @@ All projects governed by this standards kit:
 | **9. Portability** | [`STANDARDS.md#category-9`](STANDARDS.md#category-9-portability--cross-platform-compatibility) | Explicit `encoding="utf-8"`; ISO 8601 UTC timestamps; `pathlib.Path` / `node:path`; Git LF |
 | **10. Performance** | [`STANDARDS.md#category-10`](STANDARDS.md#category-10-process-lifecycle--performance) | Sub-200ms CLI startup; lazy imports for web servers; streaming I/O; graceful `SIGINT` handling |
 | **11. Composability** | [`STANDARDS.md#category-11`](STANDARDS.md#category-11-interoperability--unix-composability) | Stdin piping support (`-`); machine-readable `--json` output flag |
-| **12. Documentation** | [`STANDARDS.md#category-12`](STANDARDS.md#category-12-documentation--developer-experience) | 6-part standard `README.md`; `SECURITY.md` private vulnerability disclosure policy |
+| **12. Documentation** | [`STANDARDS.md#category-12`](STANDARDS.md#category-12-documentation--developer-experience) | 6-part standard `README.md`; `SECURITY.md` policy; Google Style / JSDoc docstrings; "why, not what" comment discipline |
 
 ---
 

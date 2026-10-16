@@ -49,8 +49,17 @@ line-length = 100
 target-version = "py311"
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "I", "B", "S"]
-ignore = []
+select = ["E", "F", "W", "I", "B", "S", "D"]
+ignore = [
+    "D104",  # Missing docstring in public package
+    "D105",  # Missing docstring in magic method
+    "D107",  # Missing docstring in __init__ (class docstring handles contract)
+    "D205",  # 1 blank line required between summary line and description
+    "D212",  # Multi-line docstring summary should start at the first line
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

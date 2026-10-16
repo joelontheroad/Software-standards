@@ -14,7 +14,8 @@ APP_NAME = "mytool"
 
 
 class ToolPreset(BaseModel):
-    """Schema-validated preset definition."""
+    """Schema-validated preset definition model."""
+
     name: str = Field(default="default", description="Preset name")
     theme: str = Field(default="auto", description="UI theme: 'auto', 'light', or 'dark'")
     max_items: int = Field(default=50, ge=1, le=1000, description="Maximum items to display")
@@ -23,13 +24,21 @@ class ToolPreset(BaseModel):
 
 class AppConfig(BaseModel):
     """Global application configuration model."""
+
     version: int = Field(default=1, description="Configuration schema version")
     default_preset: str = Field(default="default", description="Active preset name")
     preset: ToolPreset = Field(default_factory=ToolPreset)
 
 
 def sanitize_log_path(path: str) -> str:
-    """Scrub local username and home directory from log strings to protect privacy."""
+    """Scrub local username and home directory from log strings to protect privacy.
+
+    Args:
+        path: Raw filesystem path string to sanitize.
+
+    Returns:
+        Sanitized path with the user's home directory replaced by '~<USER>'.
+    """
     home_dir = str(Path.home())
     if home_dir and path.startswith(home_dir):
         return path.replace(home_dir, "~<USER>", 1)
@@ -37,7 +46,13 @@ def sanitize_log_path(path: str) -> str:
 
 
 def get_config_dir() -> Path:
-    """Return the platform-appropriate configuration directory (XDG compliant)."""
+    """Return the platform-appropriate configuration directory (XDG compliant).
+
+    Creates the directory with mode 0700 if it does not already exist.
+
+    Returns:
+        Absolute Path pointing to the application configuration directory.
+    """
     if sys.platform == "win32":
         base = os.environ.get("APPDATA")
         config_root = Path(base) if base else Path.home() / "AppData" / "Roaming"
@@ -46,7 +61,7 @@ def get_config_dir() -> Path:
         config_root = Path(base) if base else Path.home() / ".config"
 
     target_dir = config_root / APP_NAME
-    # Enforce POSIX mode 0700 (rwx------)
+    # SECURITY: Enforce POSIX mode 0700 (rwx------) to restrict multi-user local access
     if not target_dir.exists():
         target_dir.mkdir(parents=True, exist_ok=True)
         if sys.platform != "win32":
@@ -58,10 +73,17 @@ def get_config_dir() -> Path:
 
 
 def get_presets_dir() -> Path:
-    """Return the presets subfolder within the config directory."""
+    """Return the presets subfolder within the application configuration directory.
+
+    Creates the presets directory with mode 0700 if it does not already exist.
+
+    Returns:
+        Absolute Path pointing to the presets directory.
+    """
     presets_dir = get_config_dir() / "presets"
     if not presets_dir.exists():
         presets_dir.mkdir(parents=True, exist_ok=True)
+        # SECURITY: Maintain mode 0700 permissions on all config subdirectories
         if sys.platform != "win32":
             try:
                 os.chmod(presets_dir, 0o700)
@@ -71,8 +93,16 @@ def get_presets_dir() -> Path:
 
 
 def safe_resolve_preset_path(preset_name: str) -> Path:
-    """
-    Safely resolve a preset file path, preventing directory traversal attacks (CWE-22).
+    """Safely resolve a preset file path, preventing directory traversal attacks (CWE-22).
+
+    Args:
+        preset_name: Name of the preset (with or without '.yaml' extension).
+
+    Returns:
+        Canonical absolute Path to the resolved preset file within the presets directory.
+
+    Raises:
+        PermissionError: If the resolved path attempts to escape the allowed presets directory.
     """
     clean_name = preset_name.strip()
     if not clean_name.endswith(".yaml"):
@@ -81,7 +111,7 @@ def safe_resolve_preset_path(preset_name: str) -> Path:
     base_dir = get_presets_dir().resolve()
     target_path = (base_dir / clean_name).resolve()
 
-    # Prevent escaping allowed base directory
+    # SECURITY: Verify the target path stays strictly inside the designated presets root
     try:
         target_path.relative_to(base_dir)
     except ValueError as exc:
@@ -91,7 +121,20 @@ def safe_resolve_preset_path(preset_name: str) -> Path:
 
 
 def load_preset(preset_name: str = "default") -> ToolPreset:
-    """Load and validate a YAML preset file using safe deserialization (CWE-502)."""
+    """Load and validate a YAML preset file using safe deserialization (CWE-502).
+
+    If the requested preset file does not exist, a default preset is generated,
+    saved with secure permissions, and returned.
+
+    Args:
+        preset_name: Identifier of the preset to load. Defaults to 'default'.
+
+    Returns:
+        Validated ToolPreset model instance.
+
+    Raises:
+        ValueError: If YAML parsing fails or the file content fails schema validation.
+    """
     preset_path = safe_resolve_preset_path(preset_name)
 
     if not preset_path.exists():
@@ -102,7 +145,7 @@ def load_preset(preset_name: str = "default") -> ToolPreset:
 
     try:
         with open(preset_path, "r", encoding="utf-8") as f:
-            # Strictly use safe_load
+            # SECURITY: Strictly use safe_load to prevent arbitrary code execution (CWE-502)
             raw_data = yaml.safe_load(f) or {}
     except yaml.YAMLError as exc:
         raise ValueError(f"Malformed YAML in preset '{preset_name}': {exc}") from exc
@@ -114,18 +157,25 @@ def load_preset(preset_name: str = "default") -> ToolPreset:
 
 
 def save_preset(preset: ToolPreset) -> Path:
-    """Save a preset to disk with secure POSIX permissions (mode 0600)."""
+    """Save a preset to disk with secure POSIX permissions (mode 0600).
+
+    Args:
+        preset: Validated ToolPreset instance to persist.
+
+    Returns:
+        Absolute Path of the written preset YAML file.
+    """
     preset_path = safe_resolve_preset_path(preset.name)
     data = preset.model_dump()
 
-    # Convert to commented YAML representation
+    # Convert to commented YAML representation adhering to open-source preset guidelines
     yaml_content = (
         f"# Preset: {preset.name}\n"
         f"# Auto-generated configuration file adhering to open-source standards.\n"
         + yaml.dump(data, sort_keys=False)
     )
 
-    # Secure write with mode 0600 (rw-------)
+    # SECURITY: Write with mode 0600 (rw-------) so other local users cannot read settings
     flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
     mode = 0o600
 
@@ -145,5 +195,5 @@ def reset_all_configuration() -> None:
                 (Path(root) / file).unlink(missing_ok=True)
             for d in dirs:
                 (Path(root) / d).rmdir()
-    # Reinitialize default
+    # Reinitialize factory default preset
     load_preset("default")
