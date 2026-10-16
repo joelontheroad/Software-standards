@@ -147,7 +147,30 @@ Please present an implementation plan before writing any code.
 
 ---
 
-### 2. Manual Scaffolding Alternative
+### 2. Synchronizing Standards into Existing Repositories (`sync-standards.sh`)
+
+When standards, AI agent directives, or security guidelines evolve, you can safely synchronize existing repositories without disturbing your application source code.
+
+#### A. Remote Update (Run inside any existing project directory)
+```bash
+curl -fsSL https://raw.githubusercontent.com/joelontheroad/Software-standards/main/scripts/sync-standards.sh | bash
+```
+
+#### B. Local Update (Run from this standards repository)
+```bash
+./scripts/sync-standards.sh /path/to/my-existing-project
+```
+
+#### What `sync-standards.sh` Does:
+1. **Refreshes Governance & Agent Rules**: Updates `AGENTS.md` and `.agents/rules/enforce-standards.md` with the latest directives.
+2. **Synchronizes Policies**: Adds missing `SECURITY.md` or `.gitattributes` if not already present.
+3. **Inspects Linter Configs**: Checks `pyproject.toml` for Google Style docstring rules (`pydocstyle` / `D`).
+4. **Runs Compliance Audit**: Scans the project with `check-compliance.py`.
+5. **Provides AI Refactoring Prompt**: Prints the prompt to run in your AI coding assistant to bring existing code comments and docstrings into full compliance.
+
+---
+
+### 3. Manual Scaffolding Alternative
 If you prefer copying files manually:
 ```bash
 # 1. Copy the starter scaffold
@@ -170,7 +193,7 @@ pytest
 ```
 
 
-### 3. Scaffolding a New Node Utility
+### 4. Scaffolding a New Node Utility
 To start a new Node utility adhering to all standards:
 ```bash
 # 1. Copy the starter scaffold
@@ -187,7 +210,7 @@ node src/index.js --help
 npm test
 ```
 
-### 4. Auditing a Project for Standards Compliance
+### 5. Auditing a Project for Standards Compliance
 Run the compliance scanner directly from any project directory:
 
 ```bash
