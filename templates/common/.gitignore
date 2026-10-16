@@ -87,3 +87,7 @@ tmp/
 temp/
 scratch/
 *.tmp
+
+# Internal AI Agent Directives & Local Rules
+.agents/
+AGENTS.md

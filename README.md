@@ -35,18 +35,50 @@ All projects governed by this standards kit:
 
 ## How to Use This Kit
 
-### 1. Ingesting by Downstream AI Agents
-When initializing a new software project with an AI coding assistant (such as Antigravity, Claude Code, Cursor, or Copilot):
-- Copy [`AGENTS.md`](AGENTS.md) and [`.agents/rules/enforce-standards.md`](.agents/rules/enforce-standards.md) into the new repository root.
-- The AI agent will automatically detect and enforce all 12 standards when creating or modifying code.
+### 1. Scaffolding a New Project (`new-project.sh`)
+To create a new, 100% standards-compliant Python utility in a single step:
 
-### 2. Scaffolding a New Python Utility
-To start a new Python utility adhering to all standards:
+#### Local Development (From this repository):
+```bash
+./scripts/new-project.sh -n my-tool-name --desc "Short utility description" --install
+```
+
+#### Remote Development (On any laptop, workstation, or remote VM):
+Run the setup script directly from GitHub without manually cloning:
+```bash
+# Using GitHub Personal Access Token ($STANDARDS_TOKEN)
+curl -sSL -H "Authorization: Bearer $STANDARDS_TOKEN" -H "Accept: application/vnd.github.v3.raw" \
+  https://api.github.com/repos/joelontheroad/Software-standards/contents/scripts/new-project.sh | bash -s -- -n my-tool-name --install
+```
+
+Or via SSH git clone:
+```bash
+git clone git@github.com:joelontheroad/Software-standards.git /tmp/standards
+/tmp/standards/scripts/new-project.sh -n my-tool-name --install
+rm -rf /tmp/standards
+```
+
+The script automatically:
+1. Copies all shared governance files (`LICENSE`, `SECURITY.md`, `CONTRIBUTING.md`, `.gitattributes`, `.gitignore`, `.github/workflows/`).
+2. Copies the Python starter scaffold (`pyproject.toml`, `src/app/`, `tests/`).
+3. Injects internal AI agent directives (`AGENTS.md` and `.agents/rules/enforce-standards.md`, automatically ignored by `.gitignore`).
+4. Replaces all placeholders with your project name, author details, and description.
+5. Initializes a fresh `git` repository (`main` branch).
+6. Runs [`scripts/check-compliance.py`](scripts/check-compliance.py) to guarantee `[PASS]` out of the box.
+7. Prints the ready-to-use AI prompt to give to Antigravity or your AI assistant.
+
+---
+
+### 2. Manual Scaffolding Alternative
+If you prefer copying files manually:
 ```bash
 # 1. Copy the starter scaffold
 cp -r templates/python my-new-python-tool
 cp -r templates/common/* my-new-python-tool/
 cp templates/common/.* my-new-python-tool/ 2>/dev/null || true
+cp AGENTS.md my-new-python-tool/
+mkdir -p my-new-python-tool/.agents/rules
+cp .agents/rules/enforce-standards.md my-new-python-tool/.agents/rules/
 
 # 2. Enter and install in development mode
 cd my-new-python-tool
@@ -58,6 +90,7 @@ pip install -e ".[dev,web]"
 mytool --help
 pytest
 ```
+
 
 ### 3. Scaffolding a New Node Utility
 To start a new Node utility adhering to all standards:
@@ -238,8 +271,9 @@ Software-standards/
 │   └── rules/
 │       └── enforce-standards.md     # Antigravity/Agent workspace rule
 ├── scripts/
-│   └── check-compliance.py         # Automated compliance audit script
-└── templates/
+│   ├── check-compliance.py         # Automated compliance audit script
+│   └── new-project.sh              # Single-command project scaffolding tool
+├── templates/
     ├── common/                      # Shared legal, security & CI templates
     │   ├── LICENSE                  # GNU AGPL-3.0 text
     │   ├── SECURITY.md              # NIST SSDF compliant vulnerability policy
