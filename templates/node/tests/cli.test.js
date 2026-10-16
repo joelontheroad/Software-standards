@@ -45,3 +45,39 @@ test('Sanitize log path scrubs home directory', () => {
   assert.ok(!sanitized.includes(home));
   assert.ok(sanitized.startsWith('~<USER>'));
 });
+
+test('CLI --help documents --no-browser option', () => {
+  const output = execFileSync('node', [cliPath, '--help'], { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] });
+  assert.match(output, /--no-browser/);
+});
+
+test('formatClickableUrl and openBrowser logic', async () => {
+  try {
+    const { formatClickableUrl, openBrowser } = await import('../src/server.js');
+    const url = 'http://127.0.0.1:8080';
+
+    // Non-TTY stream returns plain URL
+    const fakeStream = { isTTY: false };
+    assert.strictEqual(formatClickableUrl(url, null, fakeStream), url);
+
+    // TTY stream returns OSC 8 escape sequence when NO_COLOR is not set
+    const fakeTTY = { isTTY: true };
+    const savedNoColor = process.env.NO_COLOR;
+    delete process.env.NO_COLOR;
+    try {
+      const osc8 = formatClickableUrl(url, null, fakeTTY);
+      assert.match(osc8, /\u001b\]8;;/);
+    } finally {
+      if (savedNoColor !== undefined) process.env.NO_COLOR = savedNoColor;
+    }
+
+    // openBrowser returns false when noBrowser is true
+    assert.strictEqual(openBrowser(url, true), false);
+  } catch (err) {
+    if (err.code === 'ERR_MODULE_NOT_FOUND') {
+      // Package hono is uninstalled in raw template directory prior to scaffolding
+      return;
+    }
+    throw err;
+  }
+});

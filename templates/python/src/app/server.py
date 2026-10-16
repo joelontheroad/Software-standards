@@ -1,9 +1,11 @@
 # SPDX-FileCopyrightText: 2026 [Author/Organization]
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-"""Lightweight local web server adhering to localhost binding, W3C CSP, and launch token auth."""
+"""Lightweight local web server adhering to localhost binding, W3C CSP, launch token auth, and browser automation."""
 
+import os
 import secrets
+import sys
 from pathlib import Path
 from typing import Optional
 from fastapi import FastAPI, Depends, HTTPException, Header, Query, Request, Response, status
@@ -132,21 +134,69 @@ def create_app(auth_token: Optional[str] = None) -> FastAPI:
     return app
 
 
-def run_local_server(port: int = 8080, host: str = "127.0.0.1") -> None:
+def format_clickable_url(url: str, text: Optional[str] = None, stream=sys.stderr) -> str:
+    """Format a URL as an OSC 8 clickable terminal hyperlink with plain-text fallback.
+
+    Args:
+        url: Absolute URI target.
+        text: Optional link anchor text. Defaults to the URL string.
+        stream: Output stream to inspect for interactive TTY attachment.
+
+    Returns:
+        OSC 8 formatted ANSI escape string if TTY and color-enabled, or plain URL string.
+    """
+    display = text or url
+    if "NO_COLOR" in os.environ or not (hasattr(stream, "isatty") and stream.isatty()):
+        return display if text is None else f"{display} ({url})"
+    # Terminal OSC 8 escape sequence: \033]8;;<URL>\033\\<TEXT>\033]8;;\033\\
+    return f"\033]8;;{url}\033\\{display}\033]8;;\033\\"
+
+
+def open_browser(url: str, no_browser: bool = False) -> bool:
+    """Open a URL in the user's default browser unless suppressed or running headless.
+
+    Args:
+        url: Absolute URL to navigate to.
+        no_browser: Whether automatic browser launching is suppressed.
+
+    Returns:
+        True if browser launch was initiated, False otherwise.
+    """
+    if no_browser or os.getenv("CI") == "true":
+        return False
+    # Suppress browser launch on headless Linux environments lacking a display server
+    if sys.platform.startswith("linux") and not (os.getenv("DISPLAY") or os.getenv("WAYLAND_DISPLAY")):
+        return False
+    try:
+        import webbrowser
+        return webbrowser.open(url, new=2, autoraise=True)
+    except Exception as exc:
+        # Non-fatal diagnostic warning; server execution continues unaffected
+        sys.stderr.write(f"[mytool] Notice: Could not launch browser automatically: {exc}\n")
+        return False
+
+
+def run_local_server(port: int = 8080, host: str = "127.0.0.1", no_browser: bool = False) -> None:
     """Run the local uvicorn server strictly bound to localhost.
 
     Args:
         port: TCP port number to listen on. Defaults to 8080.
         host: IP interface to bind to. Defaults strictly to '127.0.0.1'.
+        no_browser: Suppress automatic opening of default web browser on launch.
     """
     import uvicorn
     token = secrets.token_hex(32)
     app = create_app(auth_token=token)
 
+    launch_url = f"http://{host}:{port}/?token={token}"
+    clickable_url = format_clickable_url(launch_url, stream=sys.stderr)
+
     # Print authenticated launch URL to stderr (leaving stdout clean for composability)
-    import sys
-    sys.stderr.write(f"\n[mytool] Local server running at: http://{host}:{port}/?token={token}\n")
+    sys.stderr.write(f"\n[mytool] Local server running at: {clickable_url}\n")
     sys.stderr.write("[mytool] Bound strictly to localhost for privacy and security. Press Ctrl+C to exit.\n\n")
     sys.stderr.flush()
+
+    # Automatically launch browser window unless suppressed or running in headless mode
+    open_browser(launch_url, no_browser=no_browser)
 
     uvicorn.run(app, host=host, port=port, log_level="warning")

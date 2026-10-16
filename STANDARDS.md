@@ -125,7 +125,22 @@ This specification establishes non-negotiable architectural and engineering stan
   - ANSI colors and terminal styling **MUST ONLY** be emitted if `stdout.isatty()` (or equivalent) returns true.
   - The application **MUST** respect the [`NO_COLOR`](https://no-color.org) environment variable. If `NO_COLOR` is present (regardless of value), all color and ANSI styling **MUST** be suppressed.
 
-### 3.3 Local Web UI Guidelines
+### 3.3 Clickable Terminal URLs & Hyperlinks (OSC 8)
+- When a URL is displayed in the command line, it **MUST** be formatted as a clickable hyperlink using the ANSI OSC 8 escape sequence (`\033]8;;<URL>\033\\<URL>\033]8;;\033\\`).
+- **TTY & Color Discipline**:
+  - The application **MUST** verify that the destination output stream is connected to an interactive terminal (`stream.isatty()`) and that the `NO_COLOR` environment variable is **not** set before emitting OSC 8 escape sequences.
+  - If output is redirected to a pipe, file, or non-TTY, or if `NO_COLOR` is present, the application **MUST** fall back to emitting the clean, plain-text URL without ANSI escape sequences.
+  - The printed URL **MUST** be an absolute, fully qualified URI (including `http://` or `https://` scheme and port if non-standard) to ensure terminal heuristic URL parsers can also resolve it reliably.
+
+### 3.4 Browser Window Automation for Interactive Services
+- When a CLI command launches a local web interface, server (e.g., `serve`), or interactive browser-bound utility, it **MUST** automatically open the destination URL in the user's default web browser window.
+- The application **MUST** print the clickable URL to `stderr` before or immediately upon attempting to launch the browser.
+- **Opt-Out Control**: Every command launching a local web service **MUST** provide a `--no-browser` CLI flag to suppress automatic browser launching.
+- **Headless & CI Resilience**:
+  - The application **MUST** detect headless environments (e.g., `CI=true`, or Linux systems where neither `DISPLAY` nor `WAYLAND_DISPLAY` is defined).
+  - In headless environments or if the system browser launcher fails, the application **MUST NOT** crash or raise an unhandled exception. It **MUST** catch the error, log a clean informational message to `stderr`, and continue serving.
+
+### 3.5 Local Web UI Guidelines
 - **Zero-Build, Self-Contained Architecture**:
   - Web interfaces **MUST** be written in modern Vanilla HTML5, CSS3, and JavaScript, served directly by the backend.
   - **Zero External CDNs**: All scripts, stylesheets, and fonts **MUST** be served locally from the backend. The application **MUST NOT** include external `<link>` or `<script>` tags targeting CDNs (Google Fonts, unpkg, cdnjs), ensuring 100% offline functionality.
@@ -137,6 +152,7 @@ This specification establishes non-negotiable architectural and engineering stan
 - **Preset State Visibility**:
   - The UI **MUST** clearly indicate the currently active preset and show an asterisk or "Unsaved Changes" indicator when dirty.
   - Destructive actions (resetting presets, deleting items) **MUST** require explicit confirmation.
+
 
 ---
 
@@ -180,7 +196,7 @@ Configuration parameters **MUST** resolve deterministically in the following ord
 ### 5.2 Ephemeral Startup Launch Token Authentication
 To prevent malicious local browser tabs or cross-origin scripts from issuing unauthorized commands to `http://localhost:<port>`, the server **MUST** enforce launch token authentication:
 1. On startup, the CLI generates a cryptographically secure random token (32-byte hex).
-2. The CLI prints the authenticated URL to stderr: `http://127.0.0.1:8080/?token=4a7f8e...` and optionally opens the browser.
+2. The CLI prints the authenticated URL to stderr as an OSC 8 clickable link: `http://127.0.0.1:8080/?token=4a7f8e...` and automatically opens the user's default browser window (unless `--no-browser` is passed or running in a headless environment).
 3. The web server sets a local `SameSite=Strict; HttpOnly` session cookie on first request with a valid token.
 4. All subsequent API mutations (POST, PUT, DELETE) **MUST** validate this token or session cookie.
 

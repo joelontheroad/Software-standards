@@ -107,6 +107,11 @@ def main(argv: Optional[List[str]] = None) -> int:
         default="127.0.0.1",
         help="Host interface to bind. Defaults strictly to 127.0.0.1 (localhost).",
     )
+    serve_parser.add_argument(
+        "--no-browser",
+        action="store_true",
+        help="Suppress automatic opening of default web browser on launch.",
+    )
 
     # 'preset' subcommand
     preset_parser = subparsers.add_parser("preset", help="Inspect and manage local YAML presets.")
@@ -141,7 +146,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     # Handler: serve (Lazy import to maintain sub-200ms startup latency for CLI commands)
     if args.subcommand == "serve":
         from app.server import run_local_server
-        run_local_server(port=args.port, host=args.host)
+        run_local_server(port=args.port, host=args.host, no_browser=args.no_browser)
         return 0
 
     # Handler: preset

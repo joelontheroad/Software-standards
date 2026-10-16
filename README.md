@@ -20,7 +20,7 @@ All projects governed by this standards kit:
 |---|---|---|
 | **1. Privacy by Design** | [`STANDARDS.md#category-1`](STANDARDS.md#category-1-privacy-by-design--data-minimization) | Zero telemetry; 100% local data residency; username log scrubbing; `--reset-config` |
 | **2. SLM & Licensing** | [`STANDARDS.md#category-2`](STANDARDS.md#category-2-software-lifecycle-management-slm--licensing) | GNU AGPL-3.0; SPDX file headers; SemVer 2.0; AGPLv3 §13 source notice in UI & CLI |
-| **3. UI Guidelines** | [`STANDARDS.md#category-3`](STANDARDS.md#category-3-ui--human-interface-guidelines-cli--web-ui) | POSIX/GNU flags; stdout/stderr separation; `NO_COLOR`; WCAG 2.1 AA accessible web UI; zero CDNs |
+| **3. UI Guidelines** | [`STANDARDS.md#category-3`](STANDARDS.md#category-3-ui--human-interface-guidelines-cli--web-ui) | POSIX/GNU flags (`--no-browser`); stdout/stderr separation; `NO_COLOR`; clickable CLI URLs (OSC 8); auto-browser launch; WCAG 2.1 AA accessible web UI; zero CDNs |
 | **4. Configuration** | [`STANDARDS.md#category-4`](STANDARDS.md#category-4-configuration--preset-architecture) | XDG Base Directories; YAML presets with comments; Pydantic/Zod schemas; 5-tier precedence |
 | **5. Secure Programming** | [`STANDARDS.md#category-5`](STANDARDS.md#category-5-secure-programming--cybersecurity-hardening) | 127.0.0.1 bind only; ephemeral launch token auth; W3C CSP headers; safe YAML; path canonicalization |
 | **6. Supply Chain** | [`STANDARDS.md#category-6`](STANDARDS.md#category-6-supply-chain-security--packaging) | OpenSSF Scorecard (pinned action SHAs, secret scan, audit); SLSA 1-2 provenance; SBOM; SHA-256 |

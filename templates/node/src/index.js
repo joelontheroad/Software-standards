@@ -40,13 +40,14 @@ Usage:
 Options:
   -h, --help        Show usage summary
   -v, --version     Show program version and license information
+  --no-browser      Suppress automatic opening of default web browser on launch
   --json            Output structured results in machine-readable JSON format
   --reset-config    Purge all user-saved presets and restore factory defaults
 
 Commands:
-  serve [--port N]  Launch local web interface strictly bound to localhost (127.0.0.1)
-  preset list       List all locally saved presets
-  preset show       Display current preset configuration
+  serve [--port N] [--no-browser]  Launch local web interface strictly bound to localhost (127.0.0.1)
+  preset list                      List all locally saved presets
+  preset show                      Display current preset configuration
 `);
 }
 
@@ -85,7 +86,8 @@ async function main() {
     const { runLocalServer } = await import('./server.js');
     const portIndex = args.indexOf('--port');
     const port = portIndex !== -1 ? parseInt(args[portIndex + 1], 10) : 8080;
-    runLocalServer(port, '127.0.0.1');
+    const noBrowser = args.includes('--no-browser');
+    runLocalServer(port, '127.0.0.1', noBrowser);
     return;
   }
 

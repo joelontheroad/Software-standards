@@ -247,6 +247,7 @@ if server_file.exists():
     text = text.replace('title="mytool Local Server"', f'title="{project_name} Local Server"')
     text = text.replace('description="Localhost-bound web server for mytool"', f'description="Localhost-bound web server for {project_name}"')
     text = text.replace('"mytool_session"', f'"{project_name}_session"')
+    text = text.replace("[mytool]", f"[{project_name}]")
     server_file.write_text(text, encoding="utf-8")
 
 # 6. src/app/web/index.html

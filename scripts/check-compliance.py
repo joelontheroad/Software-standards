@@ -93,6 +93,15 @@ class PythonASTSecurityAuditor(ast.NodeVisitor):
                 self.errors.append(
                     f"{self.file_path}:{node.lineno}: [SECURITY] Web server function defaults host to 0.0.0.0. Must default strictly to 127.0.0.1."
                 )
+
+        # Check for run_local_server missing no_browser parameter
+        if node.name == "run_local_server":
+            arg_names = [arg.arg for arg in node.args.args]
+            if "no_browser" not in arg_names:
+                self.errors.append(
+                    f"{self.file_path}:{node.lineno}: [UI] Web server runner 'run_local_server' missing 'no_browser' parameter."
+                )
+
         self.generic_visit(node)
 
 
@@ -105,6 +114,10 @@ def check_non_python_security(file_path: Path, content: str) -> list[str]:
         # Check for default 0.0.0.0 host binding
         if re.search(r'host(name)?\s*[:=]\s*["\']0\.0\.0\.0["\']', line) and "default" in line.lower():
             errors.append(f"{file_path}:{idx}: [SECURITY] Web server defaults to 0.0.0.0. Must default strictly to 127.0.0.1.")
+
+        # Check for runLocalServer missing noBrowser
+        if "function runLocalServer(" in line and "noBrowser" not in line:
+            errors.append(f"{file_path}:{idx}: [UI] Web server runner 'runLocalServer' missing 'noBrowser' parameter.")
 
         # Check for child_process.exec in JS
         if file_path.suffix in {".js", ".ts"} and "exec(" in line and "execFile" not in line and "execFileSync" not in line:

@@ -28,6 +28,8 @@
   - Subcommands must be lowercase kebab-case (`tool preset list`).
   - Separation of streams: Write machine data to `stdout`. Write logs, progress bars, and diagnostics to `stderr`.
   - Terminal styling: Check `stdout.isatty()` before emitting ANSI colors; respect `NO_COLOR` environment variable.
+  - Clickable URLs: Any URL printed to the terminal MUST be formatted as an OSC 8 clickable link (`\033]8;;<URL>\033\\<URL>\033]8;;\033\\`) when connected to an interactive TTY and `NO_COLOR` is absent, falling back to clean plain-text URLs when redirected or when `NO_COLOR` is active.
+  - Automatic Browser Launch: Commands that start a local web interface or server MUST automatically launch the URL in the user's default browser window. Such commands MUST provide a `--no-browser` flag to suppress auto-launch, and MUST detect headless environments (`CI=true` or missing `DISPLAY`/`WAYLAND_DISPLAY`) and handle launch errors without crashing.
 - **Web UI Standards**:
   - Zero External CDNs: ALL CSS, JS, and font assets MUST be bundled and served locally. NO external `<link>`/`<script>` tags to Google Fonts, unpkg, cdnjs.
   - WCAG 2.1 AA: Text contrast ratio >= 4.5:1. Accessible focus rings. Support full keyboard navigation (Tab/Shift+Tab, Escape closes modals). Inputs must have explicit `<label for="...">`.
@@ -44,7 +46,7 @@
 
 ## 5. Secure Programming & Cybersecurity
 - **Localhost Only**: Local web servers MUST bind by default to `127.0.0.1` (or `::1`). NEVER bind by default to `0.0.0.0`. External binding requires an explicit `--host 0.0.0.0` flag.
-- **Ephemeral Launch Token**: On web server startup, generate a cryptographically random token (`secrets.token_hex(32)`) and print `http://127.0.0.1:8080/?token=...`. Validate this token via `SameSite=Strict; HttpOnly` session cookie on all mutation endpoints.
+- **Ephemeral Launch Token**: On web server startup, generate a cryptographically random token (`secrets.token_hex(32)`), print the URL to `stderr` as an OSC 8 clickable link (`http://127.0.0.1:8080/?token=...`), and automatically open the user's default browser (unless `--no-browser` is passed or running headless). Validate this token via `SameSite=Strict; HttpOnly` session cookie on all mutation endpoints.
 - **W3C CSP & Security Headers**: Include on every HTTP response:
   ```http
   Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; object-src 'none'; frame-ancestors 'none';
