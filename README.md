@@ -77,15 +77,12 @@ npm test
 ```
 
 ### 4. Auditing a Project for Standards Compliance
-Run the compliance scanner directly from your private GitHub repository without cloning or keeping a local copy on your hard drive:
+Run the compliance scanner directly from any project directory:
 
 ```bash
-curl -sSL -H "Authorization: Bearer $STANDARDS_TOKEN" \
-  -H "Accept: application/vnd.github.v3.raw" \
-  https://api.github.com/repos/joelontheroad/Software-standards/contents/scripts/check-compliance.py \
-  | python3 - .
+check-standards
 ```
-*(Or simply run `check-standards` if you have configured the shell alias below).*
+*(This streams the latest compliance scanner directly from your private GitHub repository using `$STANDARDS_TOKEN`).*
 
 The scanner audits:
 - Presence of SPDX AGPL-3.0 headers across all code files.
@@ -96,28 +93,27 @@ The scanner audits:
 
 ---
 
-## Environment Setup (`STANDARDS_TOKEN`)
+## Environment Setup (`check-standards`)
 
-To run compliance audits from any terminal (laptop or remote VM) without hardcoding local file paths, configure `STANDARDS_TOKEN` in your environment:
+To configure the `check-standards` command on your laptop or remote VM:
 
-### 1. Add Token to `~/.bashrc`
-Run the following commands in your terminal (replace `YOUR_GITHUB_PAT_TOKEN` with your actual token):
+### 1. Add Token & Alias to `~/.bashrc`
+Run the following in your terminal (replace `YOUR_GITHUB_PAT_TOKEN` with your actual token):
 
 ```bash
-# Add token to environment
+# Set your private standards token
 echo 'export STANDARDS_TOKEN="YOUR_GITHUB_PAT_TOKEN"' >> ~/.bashrc
 
-# (Optional) Add a 1-word shortcut alias
+# Set the check-standards command shortcut
 echo 'alias check-standards='\''curl -sSL -H "Authorization: Bearer $STANDARDS_TOKEN" -H "Accept: application/vnd.github.v3.raw" https://api.github.com/repos/joelontheroad/Software-standards/contents/scripts/check-compliance.py | python3 - .'\' >> ~/.bashrc
 
 # Reload shell configuration
 source ~/.bashrc
 ```
 
-### 2. Verify Configuration
+### 2. Verify
 ```bash
-echo $STANDARDS_TOKEN   # Prints your token
-check-standards         # Runs compliance audit directly from GitHub
+check-standards
 ```
 
 ---
@@ -138,7 +134,7 @@ To prevent internal AI directives from polluting your public repositories, add t
 .agents/
 AGENTS.md
 ```
-- **On your desktop & on your VM**: You can copy `AGENTS.md` and `.agents/rules/enforce-standards.md` directly into the project folder so local AI agents enforce the rules.
+- **On your desktop & on your VM**: Copy `AGENTS.md` and `.agents/rules/enforce-standards.md` directly into the project folder so local AI agents enforce the rules.
 - **On GitHub**: Git completely ignores these files. Your public repository remains pristine and professional.
 
 ### 3. Enforcing Compliance Across Environments (3-Layer Gate)
@@ -148,7 +144,7 @@ Even with agent files `.gitignore`'d, compliance is guaranteed across all machin
    - **Option A**: Copy `AGENTS.md` into the project root and `enforce-standards.md` into `.agents/rules/` (both ignored by git).
    - **Option B (Global IDE Rule)**: In Antigravity, place the rule in your Global Customization Root (`~/.gemini/config/rules/enforce-standards.md`). Every project opened in the IDE automatically adheres to the 12 standards without needing any local files in the project.
 2. **Layer 2: Local Pre-Commit Audit**:
-   - Run the compliance check directly from GitHub using your environment token:
+   - Run the compliance check from any project directory:
      ```bash
      check-standards
      ```
@@ -156,14 +152,14 @@ Even with agent files `.gitignore`'d, compliance is guaranteed across all machin
    - Configure the project's `.github/workflows/ci.yml` to checkout the private standards repo securely:
      ```yaml
      - name: Checkout Private Standards Repository
-       uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
-       with:
-         repository: joelontheroad/Software-standards
-         token: ${{ secrets.STANDARDS_TOKEN }}
-         path: .standards
+      uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+      with:
+        repository: joelontheroad/Software-standards
+        token: ${{ secrets.STANDARDS_TOKEN }}
+        path: .standards
 
-     - name: Run Standards Compliance Check
-       run: python3 .standards/scripts/check-compliance.py .
+    - name: Run Standards Compliance Check
+      run: python3 .standards/scripts/check-compliance.py .
      ```
    - **Advantage**: Individual projects never need a copy of the audit script committed, the standards repo remains 100% private, and whenever you update a standard rule centrally, **all your repositories immediately inherit the new check on their next CI run**.
 
@@ -182,11 +178,8 @@ When bringing an existing project into compliance (either on your laptop or on a
 Please perform a compliance audit of this codebase and prepare a migration plan:
 
 1. RUN AUDIT:
-   Execute the compliance scanner directly from our private GitHub repository:
-   curl -sSL -H "Authorization: Bearer $STANDARDS_TOKEN" \
-     -H "Accept: application/vnd.github.v3.raw" \
-     https://api.github.com/repos/joelontheroad/Software-standards/contents/scripts/check-compliance.py \
-     | python3 - .
+   Execute the compliance scanner:
+   check-standards
 
 2. GAP ANALYSIS:
    Inspect the code and report on:
@@ -224,13 +217,9 @@ Please update this codebase following this execution order:
    - Encodings: Ensure all file read/write calls explicitly specify `encoding="utf-8"`.
 
 3. VERIFY:
-   - Run the compliance check directly from GitHub:
-     curl -sSL -H "Authorization: Bearer $STANDARDS_TOKEN" \
-       -H "Accept: application/vnd.github.v3.raw" \
-       https://api.github.com/repos/joelontheroad/Software-standards/contents/scripts/check-compliance.py \
-       | python3 - .
+   - Run the compliance check and fix any errors until it outputs [PASS]:
+     check-standards
    - Run the project test suite.
-   - Fix any errors until the compliance audit outputs `[PASS]`.
 ```
 
 
