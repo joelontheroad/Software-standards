@@ -1,0 +1,59 @@
+/plan  We're going to make standards for every software project I create.  I have a few open source software projects on github and I have a few more ideas I'll be producing over the next month or so.  I want all them to follow the same standards.  
+
+These projects are mainly utilities.  As such, they:
+- do NOT have a concept of an account
+- do not save PII, but may save presets
+- we're not collecting fees of any kind
+- may run from the command line, or may run in a browser via a lightweight web server running locally
+- will all be distributed via github and each will live in it's own repository
+- will use the GNU Affero General Public License v3.0
+
+I want you to research standards in the following categories so that the software I make is compliant. I want you to recommend what parts of the standards we can adhere to and what parts we don't need to adhere to because we're not saving PII
+
+I need standards in the following categories:
+- Privacy.  Eg: ISO27001 or FedRamp compliance
+- Software lifecycle management. Eg: headers on every source file which includes version number, etc.
+- UI - Industry standard human interface interactions
+- Configuration - Industry standard configuration processes such as yaml files, etc.
+- Secure programming - eg: compliance with OWASP Top 10 and OWASP AI Top 10.
+
+Provide suggestions and ask me questions. I'll then ask you to put together an implementation plan of some artifact that you recommend.  The artifact will be ingested by other AI agents to guide them as they create their programs.
+
+-------------------
+Primary Programming Language(s): What primary languages/stacks will these projects use? (e.g., Python, TypeScript/Node, Go, Rust, or a mix?) (This determines the exact linting configs, SPDX comment syntax, packaging tools, and config parsing libraries we include).
+
+The primary languages will be python and probably node.  However, this could change depending on the software requirements.
+
+Web Framework Preference: For the tools with a lightweight local web server, what backend/frontend setup do you prefer? (e.g., Python FastAPI/Flask with vanilla HTML/CSS, Go with embedded templates, Node/Vite, or a single-binary approach?)
+
+I don't have a framework preference.  Guide me.
+
+
+Preset Management Format: Do you prefer YAML or TOML as the default format for user-editable preset files?
+
+I prefer YAML, it's more linux-like.
+
+License Flavor: Do you prefer AGPL-3.0-only (strictly v3) or AGPL-3.0-or-later (allows future GPL revisions)? Standard FSF guidance recommends AGPL-3.0-or-later.
+
+I prefer the GNU Affero General Public License v3.0
+ 
+
+Where should the standards repository be maintained? Should we build this standards kit directly inside this current repository (Software-standards), providing both the documentation and reusable templates?
+
+The standards repository should be maintained directly in  inside this current repository (Software-standards
+
+-----------------------
+/grill-me
+
+The primary languages will be python and probably node.  However, this could change depending on the software requirements.
+
+I don't have a framework preference.  Guide me.
+
+I prefer YAML, it's more linux-like.
+
+I prefer the GNU Affero General Public License v3.0
+
+The standards repository should be maintained directly in  inside this current repository (Software-standards
+
+Are there other standards categories I should include?
+

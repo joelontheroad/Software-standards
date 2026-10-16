@@ -1,0 +1,32 @@
+{
+  "name": "mytool-node",
+  "version": "0.1.0",
+  "description": "Standard-compliant open-source Node utility",
+  "type": "module",
+  "main": "src/index.js",
+  "bin": {
+    "mytool": "./src/index.js"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "node --test tests/cli.test.js"
+  },
+  "keywords": [
+    "cli",
+    "utility",
+    "agplv3",
+    "privacy-by-design"
+  ],
+  "author": "Author Name <author@example.com>",
+  "license": "AGPL-3.0-or-later",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/username/mytool-node"
+  },
+  "dependencies": {
+    "yaml": "^2.4.1",
+    "zod": "^3.22.4",
+    "hono": "^4.1.0",
+    "@hono/node-server": "^1.8.2"
+  }
+}
