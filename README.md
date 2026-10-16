@@ -76,11 +76,17 @@ node src/index.js --help
 npm test
 ```
 
-### 4. Auditing an Existing Project for Standards Compliance
-Run the compliance scanner against any local repository:
+### 4. Auditing a Project for Standards Compliance
+Run the compliance scanner directly from your private GitHub repository without cloning or keeping a local copy on your hard drive:
+
 ```bash
-python3 scripts/check-compliance.py /path/to/my-project
+curl -sSL -H "Authorization: Bearer $STANDARDS_TOKEN" \
+  -H "Accept: application/vnd.github.v3.raw" \
+  https://api.github.com/repos/joelontheroad/Software-standards/contents/scripts/check-compliance.py \
+  | python3 - .
 ```
+*(Or simply run `check-standards` if you have configured the shell alias below).*
+
 The scanner audits:
 - Presence of SPDX AGPL-3.0 headers across all code files.
 - Absence of hardcoded version numbers in code file headers.
@@ -90,14 +96,40 @@ The scanner audits:
 
 ---
 
+## Environment Setup (`STANDARDS_TOKEN`)
+
+To run compliance audits from any terminal (laptop or remote VM) without hardcoding local file paths, configure `STANDARDS_TOKEN` in your environment:
+
+### 1. Add Token to `~/.bashrc`
+Run the following commands in your terminal (replace `YOUR_GITHUB_PAT_TOKEN` with your actual token):
+
+```bash
+# Add token to environment
+echo 'export STANDARDS_TOKEN="YOUR_GITHUB_PAT_TOKEN"' >> ~/.bashrc
+
+# (Optional) Add a 1-word shortcut alias
+echo 'alias check-standards='\''curl -sSL -H "Authorization: Bearer $STANDARDS_TOKEN" -H "Accept: application/vnd.github.v3.raw" https://api.github.com/repos/joelontheroad/Software-standards/contents/scripts/check-compliance.py | python3 - .'\' >> ~/.bashrc
+
+# Reload shell configuration
+source ~/.bashrc
+```
+
+### 2. Verify Configuration
+```bash
+echo $STANDARDS_TOKEN   # Prints your token
+check-standards         # Runs compliance audit directly from GitHub
+```
+
+---
+
 ## Multi-Machine & Remote VM Architecture (Desktop + HP Server VM)
 
-When developing across multiple environments (such as a local workstation and an isolated VM on an HP server without shared disk mounts), follow this architectural model:
+When developing across multiple environments (such as a local workstation and an isolated VM on an HP server), follow this architectural model:
 
 ### 1. Separation of Concerns: Public vs. Internal Artifacts
 End users and public Git repositories **do not** need your internal AI agent rules or prompt files:
 - **Public Artifacts (Committed to Git)**: Application source code, unit tests (`tests/`), `LICENSE` (AGPLv3), `README.md`, and `SECURITY.md`.
-- **Internal Governance (Kept Local or `.gitignore`'d)**: `AGENTS.md`, `.agents/rules/`, compliance scripts, and prompt notes.
+- **Internal Governance (Kept Local or `.gitignore`'d)**: `AGENTS.md`, `.agents/rules/`, and prompt notes.
 
 ### 2. Keeping AI Rules Out of Public Git Repositories
 To prevent internal AI directives from polluting your public repositories, add them to `.gitignore` in your target projects:
@@ -106,44 +138,40 @@ To prevent internal AI directives from polluting your public repositories, add t
 .agents/
 AGENTS.md
 ```
-- **On your desktop & on your VM**: You can SFTP or copy `AGENTS.md` and `.agents/rules/enforce-standards.md` directly into the project folder so local AI agents enforce the rules.
+- **On your desktop & on your VM**: You can copy `AGENTS.md` and `.agents/rules/enforce-standards.md` directly into the project folder so local AI agents enforce the rules.
 - **On GitHub**: Git completely ignores these files. Your public repository remains pristine and professional.
 
 ### 3. Enforcing Compliance Across Environments (3-Layer Gate)
 Even with agent files `.gitignore`'d, compliance is guaranteed across all machines:
 
 1. **Layer 1: Authoring (Local / VM)**:
-   - **Option A**: SFTP `AGENTS.md` into the project root (ignored by git).
+   - **Option A**: Copy `AGENTS.md` into the project root and `enforce-standards.md` into `.agents/rules/` (both ignored by git).
    - **Option B (Global IDE Rule)**: In Antigravity, place the rule in your Global Customization Root (`~/.gemini/config/rules/enforce-standards.md`). Every project opened in the IDE automatically adheres to the 12 standards without needing any local files in the project.
 2. **Layer 2: Local Pre-Commit Audit**:
-   - SFTP `Software-standards` once to `~/Software-standards` on the VM.
-   - Run the audit script before committing:
+   - Run the compliance check directly from GitHub using your environment token:
      ```bash
-     python3 ~/Software-standards/scripts/check-compliance.py .
+     check-standards
      ```
-3. **Layer 3: Centralized GitHub Actions CI Gate (Solution B: Private Repo + Token)**:
-   - Because `Software-standards` is a **private repository**, projects authenticate via a GitHub secret (`STANDARDS_TOKEN`):
-     1. Create a Fine-Grained Personal Access Token (or Classic PAT with `repo` read scope) on GitHub with read access to `joelontheroad/Software-standards`.
-     2. Add it as an Action Secret named `STANDARDS_TOKEN` in your project repository (or organization-wide).
-     3. The project's `.github/workflows/ci.yml` securely checks out the private standards repo and runs the audit:
-        ```yaml
-        - name: Checkout Private Standards Repository
-          uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
-          with:
-            repository: joelontheroad/Software-standards
-            token: ${{ secrets.STANDARDS_TOKEN }}
-            path: .standards
+3. **Layer 3: Centralized GitHub Actions CI Gate (Private Repo + Token)**:
+   - Configure the project's `.github/workflows/ci.yml` to checkout the private standards repo securely:
+     ```yaml
+     - name: Checkout Private Standards Repository
+       uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+       with:
+         repository: joelontheroad/Software-standards
+         token: ${{ secrets.STANDARDS_TOKEN }}
+         path: .standards
 
-        - name: Run Standards Compliance Check
-          run: python3 .standards/scripts/check-compliance.py .
-        ```
+     - name: Run Standards Compliance Check
+       run: python3 .standards/scripts/check-compliance.py .
+     ```
    - **Advantage**: Individual projects never need a copy of the audit script committed, the standards repo remains 100% private, and whenever you update a standard rule centrally, **all your repositories immediately inherit the new check on their next CI run**.
 
 ---
 
 ## Migrating Existing Projects to These Standards
 
-When bringing an existing project into compliance (either on your local machine or on a remote VM), use one of the following prompts with your AI coding assistant:
+When bringing an existing project into compliance (either on your laptop or on a remote VM), use one of the following prompts with your AI coding assistant:
 
 ### Option A: The "Audit-First" Interactive Prompt *(Recommended for complex projects)*
 > Analyzes the codebase, identifies non-compliant patterns, and presents an implementation plan before touching code.
@@ -151,15 +179,14 @@ When bringing an existing project into compliance (either on your local machine 
 ```markdown
 /plan We are migrating this repository to comply with our organization's 12 Open Source Software Standards.
 
-Standards Reference:
-- Full Standards: "${SOFTWARE_STANDARDS_DIR:-$HOME/Software-standards}/STANDARDS.md" (or local ./AGENTS.md)
-- Compliance Scanner: "${SOFTWARE_STANDARDS_DIR:-$HOME/Software-standards}/scripts/check-compliance.py"
-
 Please perform a compliance audit of this codebase and prepare a migration plan:
 
 1. RUN AUDIT:
-   Execute the compliance scanner:
-   python3 "${SOFTWARE_STANDARDS_DIR:-$HOME/Software-standards}/scripts/check-compliance.py" .
+   Execute the compliance scanner directly from our private GitHub repository:
+   curl -sSL -H "Authorization: Bearer $STANDARDS_TOKEN" \
+     -H "Accept: application/vnd.github.v3.raw" \
+     https://api.github.com/repos/joelontheroad/Software-standards/contents/scripts/check-compliance.py \
+     | python3 - .
 
 2. GAP ANALYSIS:
    Inspect the code and report on:
@@ -181,14 +208,10 @@ Please perform a compliance audit of this codebase and prepare a migration plan:
 ```markdown
 We need to update this existing project to strictly comply with our 12 Open Source Software Standards.
 
-Standards Reference: "${SOFTWARE_STANDARDS_DIR:-$HOME/Software-standards}/STANDARDS.md"
-Agent Directives: "${SOFTWARE_STANDARDS_DIR:-$HOME/Software-standards}/AGENTS.md" (or local ./AGENTS.md)
-Compliance Scanner: "${SOFTWARE_STANDARDS_DIR:-$HOME/Software-standards}/scripts/check-compliance.py"
-
 Please update this codebase following this execution order:
 
 1. COPY DIRECTIVES:
-   - Copy `AGENTS.md` and `.agents/rules/enforce-standards.md` into this project (add both to `.gitignore` so they remain local).
+   - Copy `AGENTS.md` into the root directory and `enforce-standards.md` into `.agents/rules/` (ensure `.gitignore` ignores both).
    - Ensure the root `LICENSE` is the official GNU AGPLv3.
 
 2. CODEBASE UPDATES:
@@ -201,7 +224,11 @@ Please update this codebase following this execution order:
    - Encodings: Ensure all file read/write calls explicitly specify `encoding="utf-8"`.
 
 3. VERIFY:
-   - Run `python3 "${SOFTWARE_STANDARDS_DIR:-$HOME/Software-standards}/scripts/check-compliance.py" .`
+   - Run the compliance check directly from GitHub:
+     curl -sSL -H "Authorization: Bearer $STANDARDS_TOKEN" \
+       -H "Accept: application/vnd.github.v3.raw" \
+       https://api.github.com/repos/joelontheroad/Software-standards/contents/scripts/check-compliance.py \
+       | python3 - .
    - Run the project test suite.
    - Fix any errors until the compliance audit outputs `[PASS]`.
 ```
