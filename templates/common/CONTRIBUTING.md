@@ -14,14 +14,16 @@ All code in this repository adheres to the standards defined in the project's `S
    // SPDX-FileCopyrightText: 2026 [Author/Organization]
    // SPDX-License-Identifier: AGPL-3.0-or-later
    ```
-2. **Privacy**: Zero telemetry, no external phone-home requests, local storage only (`~/.config/<tool>`).
+2. **Privacy**: Zero telemetry, no external phone-home requests, Freedesktop XDG local storage only (`~/.config/<tool>`), deterministic data erasure on state purge (NEVER use desktop Trash for state resets), zero unsolicited autostart.
 3. **Security**:
    - Local web servers must bind strictly to `127.0.0.1`.
    - Never use `yaml.load()` (always use `yaml.safe_load()`).
    - Never use `shell=True` or `exec()` for shell invocations.
-   - Canonicalize paths using `realpath` to prevent path traversal (CWE-22).
+   - Canonicalize paths using `realpath` and validate `file://` URIs inside allowed directory jails to prevent path traversal (CWE-22).
    - Set POSIX directory permissions to `0700` and config file permissions to `0600`.
+   - Never silently write to the system clipboard; never copy ephemeral launch tokens, secrets, or passwords.
 4. **Portability**: All file operations must explicitly declare `encoding="utf-8"`.
+5. **Preservation of User-Facing Functionality**: PRs and contributions must not delete, rename, or break existing user-facing functionality (CLI subcommands, flags, YAML preset keys, environment variables, exit codes, or UI controls) without explicit user authorization. Internal implementations, helpers, and algorithms may be refactored freely provided all external behaviors and tests are strictly preserved.
 
 ---
 

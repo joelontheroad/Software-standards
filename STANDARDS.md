@@ -10,7 +10,7 @@
 ## Table of Contents
 1. [Scope & Philosophy](#1-scope--philosophy)
 2. [Category 1: Privacy by Design & Data Minimization](#category-1-privacy-by-design--data-minimization)
-3. [Category 2: Software Lifecycle Management (SLM) & Licensing](#category-2-software-lifecycle-management-slm--licensing)
+3. [Category 2: Software Lifecycle Management (SLM), Compatibility & Licensing](#category-2-software-lifecycle-management-slm-compatibility--licensing)
 4. [Category 3: UI & Human Interface Guidelines (CLI & Web UI)](#category-3-ui--human-interface-guidelines-cli--web-ui)
 5. [Category 4: Configuration & Preset Architecture](#category-4-configuration--preset-architecture)
 6. [Category 5: Secure Programming & Cybersecurity Hardening](#category-5-secure-programming--cybersecurity-hardening)
@@ -34,6 +34,7 @@ This specification establishes non-negotiable architectural and engineering stan
 - **Local Sovereignty**: All state, presets, and cache files reside strictly on the user’s local machine. Zero remote tracking, beaconing, or unvetted external network traffic.
 - **Defense-in-Depth for Localhost**: Protect local web utilities against DNS rebinding, cross-origin browser abuse, and local multi-user eavesdropping via ephemeral tokens, W3C CSP headers, and POSIX least-privilege permissions.
 - **Agent-First Executability**: Standards are structured with unambiguous RFC-2119 imperatives (`MUST`, `MUST NOT`, `SHOULD`) so downstream AI coding agents can ingest and enforce them without ambiguity.
+- **Preservation of User-Facing Interaction Surface**: Evolution is strictly additive. Features, commands, flags, preset keys, or UI elements that users interact with **MUST NEVER** be deleted, removed, or disabled without explicit user request. Behind the scenes, developers and AI agents retain full freedom to refactor internal implementations.
 
 ---
 
@@ -59,10 +60,20 @@ This specification establishes non-negotiable architectural and engineering stan
   # Reset all configuration and presets to factory default
   mytool config reset --force
   ```
+- **Prohibition on Desktop Trash for State Purges**: State reset and cleanup operations (`--reset-config`, `config reset`, `--purge`) **MUST** permanently unlink/shred files from disk. They **MUST NOT** move state files to the Desktop Trash Can (`trash-spec`). Trashing state preserves unencrypted metadata (`.trashinfo` files containing absolute paths, usernames, and deletion timestamps) indefinitely on disk, directly compromising privacy and data minimization.
+
+### 1.5 Freedesktop Base Directory Standard Conformance
+- Applications **MUST** strictly conform to the **Freedesktop.org XDG Base Directory Specification** (`basedir-spec` v0.8) for all runtime file placement (see [Category 4](#category-4-configuration--preset-architecture)).
+- All persistent files **MUST** be isolated within user-owned directories with restricted POSIX permissions (`0700` dirs, `0600` files).
+
+### 1.6 Prohibition on Unsolicited Persistence & Autostart
+- Applications **MUST NOT** install background autostart entries (`autostart-spec`) by default.
+- Background services and local web servers **MUST ONLY** run upon explicit, intentional user invocation. Auto-launching local web servers upon desktop login creates unmonitored background listeners on `127.0.0.1` and constitutes an unauthorized persistence mechanism (MITRE ATT&CK T1547.013).
+- Autostart triggers from mounted removable media are **STRICTLY PROHIBITED**.
 
 ---
 
-## Category 2: Software Lifecycle Management (SLM) & Licensing
+## Category 2: Software Lifecycle Management (SLM), Compatibility & Licensing
 
 ### 2.1 License Selection & Notices
 - Every repository **MUST** be licensed under the **GNU Affero General Public License v3.0 or later** (`AGPL-3.0-or-later`).
@@ -102,6 +113,16 @@ This specification establishes non-negotiable architectural and engineering stan
 - Commit messages **MUST** adhere to the **Conventional Commits 1.0.0** format:
   `feat:`, `fix:`, `docs:`, `style:`, `refactor:`, `perf:`, `test:`, `build:`, `ci:`, `chore:`.
 - Every repository **MUST** maintain a `CHANGELOG.md` adhering to [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/).
+
+### 2.6 Preservation of User-Facing Interaction Surface & Backward Compatibility
+- **Inviolability of the User-Facing Interaction Surface**: When modifying, refactoring, fixing bugs, or adding features, developers and AI agents **MUST NOT** delete, remove, rename, or disable any functionality with which the user interacts, unless specifically and explicitly requested by the user. This non-negotiable protection encompasses:
+  - **CLI Commands & Subcommands**: All existing commands, subcommands, and positional argument conventions **MUST** remain invokable with identical behavior.
+  - **CLI Flags & Options**: All existing flags (both short and long, e.g. `-q`, `--json`, `--no-browser`) **MUST** continue to be recognized and execute their documented behavior.
+  - **Configuration Keys & Presets**: Existing YAML preset keys, default parameters, and environment variable overrides **MUST** continue to parse without errors, guaranteeing that previously created user configuration files remain valid.
+  - **Interactive Web UI Elements**: Controls, buttons, input fields, navigation elements, forms, and display cards **MUST NOT** be deleted or disabled.
+  - **Output Contracts & Exit Codes**: Standard exit codes (`0`, `1`, `2`, `130`) and machine-readable `stdout` outputs **MUST** remain backward-compatible.
+- **Behind-the-Scenes Architectural Freedom**: Developers and AI agents **HAVE FULL FREEDOM** to refactor, restructure, optimize, or rewrite internal implementation details—including private helper functions, internal class hierarchies, algorithms, data structures, and file modularization—**provided that** the external user-facing contract and behavior remain 100% operational and existing tests continue to pass without regression.
+- **Protocol for Proposed Deletions**: If an engineer or AI agent believes an existing user-facing feature or option is dead, redundant, or insecure, they **MUST** explicitly state the finding to the user and request permission to remove it. Silent or unilateral deletion of user-facing functionality is **STRICTLY PROHIBITED**.
 
 ---
 
@@ -153,19 +174,35 @@ This specification establishes non-negotiable architectural and engineering stan
   - The UI **MUST** clearly indicate the currently active preset and show an asterisk or "Unsaved Changes" indicator when dirty.
   - Destructive actions (resetting presets, deleting items) **MUST** require explicit confirmation.
 
+### 3.6 Freedesktop Desktop Entry Conformance (.desktop)
+For utilities providing a local web interface or desktop launcher integration, the application package or installer **SHOULD** provide a standard Freedesktop `.desktop` file (specification v1.5) adhering to strict security constraints:
+- **Direct Binary Execution Only**: The `Exec=` line **MUST** invoke the compiled executable or entrypoint directly (e.g., `Exec=mytool launch --no-browser --`). Shell wrappers (such as `Exec=sh -c "..."` or `Exec=bash ...`) are **STRICTLY PROHIBITED** to eliminate command injection vectors (CWE-78).
+- **Safe Parameter Handling**: If handling file or URL arguments, field codes **MUST** be enclosed in quotes (e.g., `"%u"` or `"%f"`), and the CLI parser **MUST** use `--` argument terminators to prevent argument injection (CWE-88).
+- **URL Scheme Mutation Barrier**: If the `.desktop` file registers custom URI schemes (`MimeType=x-scheme-handler/mytool;`), the application **MUST NOT** perform state mutations or file operations based on URL invocation without explicit, interactive confirmation in the browser UI.
+- **Desktop Settings**: For browser-bound utilities, set `Terminal=false`, specify standard categories (e.g., `Categories=Utility;Development;`), and place user entries strictly in `$XDG_DATA_HOME/applications/` (mode `0644`).
+
+### 3.7 Clipboard Safety & Interaction Guidelines (Freedesktop Consensus)
+When implementing clipboard integration (such as a `--copy` CLI flag or a "Copy" button in a local web interface):
+- **User-Gesture Requirement (Zero Silent Writes)**: The application **MUST NOT** write to the system clipboard (`CLIPBOARD` or `PRIMARY` selection) automatically or without explicit user intent. CLI clipboard writes **MUST** require an explicit flag (e.g., `--copy`), and Web UI writes **MUST** occur strictly within an explicit user-initiated event listener (`click` handler via `navigator.clipboard.writeText`).
+- **Prohibition on Sensitive Data in Clipboard**: Applications **MUST NEVER** copy ephemeral launch tokens, passwords, session credentials, or secret keys to the system clipboard. On X11 display servers, clipboard selections are readable by any running local client without isolation (CWE-200).
+- **Wayland-Aware Tooling**: CLI tools on Linux **MUST** prioritize Wayland clipboard protocols (`wl-copy`) over legacy X11 tools (`xclip`/`xsel`) to leverage Wayland's isolated security model.
 
 ---
 
 ## Category 4: Configuration & Preset Architecture
 
-### 4.1 XDG Base Directory Conformance
-Applications **MUST NOT** scatter arbitrary dotfiles in the user's root home folder (`~/.mytool`). They **MUST** adhere to the XDG Base Directory Specification across operating systems:
+### 4.1 Freedesktop XDG Base Directory Conformance
+Applications **MUST NOT** scatter arbitrary dotfiles in the user's root home folder (`~/.mytool`). They **MUST** strictly conform to the **Freedesktop.org XDG Base Directory Specification** (`basedir-spec` v0.8) across operating systems:
 
-| Purpose | Linux / macOS Default | Windows Equivalent |
-|---|---|---|
-| **Config & Presets** | `~/.config/<app-name>/` | `%APPDATA%\<app-name>\` |
-| **Data & State** | `~/.local/share/<app-name>/` | `%LOCALAPPDATA%\<app-name>\Data\` |
-| **Cache & Temp** | `~/.cache/<app-name>/` | `%LOCALAPPDATA%\<app-name>\Cache\` |
+| Purpose | Variable | Linux / macOS Default | Windows Equivalent |
+|---|---|---|---|
+| **Config & Presets** | `$XDG_CONFIG_HOME` | `~/.config/<app-name>/` | `%APPDATA%\<app-name>\` |
+| **Data (Persistent)** | `$XDG_DATA_HOME` | `~/.local/share/<app-name>/` | `%LOCALAPPDATA%\<app-name>\Data\` |
+| **State (Logs/History)**| `$XDG_STATE_HOME` | `~/.local/state/<app-name>/` | `%LOCALAPPDATA%\<app-name>\State\` |
+| **Cache & Temp** | `$XDG_CACHE_HOME` | `~/.cache/<app-name>/` | `%LOCALAPPDATA%\<app-name>\Cache\` |
+| **Runtime Sockets** | `$XDG_RUNTIME_DIR` | `/run/user/$UID/<app-name>/` | `%LOCALAPPDATA%\Temp\` |
+
+- System-level fallback search paths (`$XDG_CONFIG_DIRS`, `$XDG_DATA_DIRS`) **MUST** be respected when locating read-only shared presets or system defaults.
 
 ### 4.2 Configuration File Format
 - Presets and user configuration files **MUST** use **YAML** (`.yaml`) as the standard format.
@@ -213,7 +250,7 @@ Referrer-Policy: no-referrer
 - **CWE-502 (Insecure Deserialization)**:
   - In Python, `yaml.load()` is **STRICTLY PROHIBITED**. Applications **MUST** use `yaml.safe_load()`.
   - In Node, use safe schema parsers.
-- **CWE-22 (Path Traversal)**:
+- **CWE-22 (Path Traversal & Safe File URI Resolution)**:
   - User-provided file paths or preset names **MUST** be canonicalized using `os.path.realpath` / `fs.realpathSync`.
   - The application **MUST** verify that the resolved path resides within the designated base directory:
     ```python
@@ -221,6 +258,10 @@ Referrer-Policy: no-referrer
     if not canonical.startswith(allowed_base_dir):
         raise PermissionError(f"Access denied: {target_path} escapes allowed directory")
     ```
+  - **Freedesktop File URI Conformance (`file-uri-spec` / RFC 8089)**:
+    - When accepting or parsing `file://` URIs (e.g. from drag-and-drop or terminal input), the parser **MUST** reject any URI containing a non-empty authority unless it is literally `localhost` or `127.0.0.1`. Remote authorities (e.g., `file://attacker-host/...`) **MUST** be rejected to prevent remote SMB credential leaks or network traversal.
+    - Local paths extracted from `file://` URIs **MUST** undergo percent-decoding, conversion via `pathlib.Path`, and canonicalization verification within the allowed directory jail.
+    - Web server API endpoints **MUST NOT** accept arbitrary `file://` URIs from browser clients to read local filesystem contents.
 - **CWE-78 (OS Command Injection)**:
   - Invoking external shell commands with raw string interpolation (`shell=True` in Python, `exec()` in Node) is **STRICTLY FORBIDDEN**.
   - All process invocations **MUST** pass discrete argument arrays:
@@ -245,6 +286,11 @@ When creating configuration directories and preset files:
 - **Prompt Injection (LLM01)**: System prompts and instructions **MUST** be structurally segregated from untrusted user files or inputs.
 - **Sensitive Information Disclosure (LLM02)**: API keys (OpenAI, Anthropic, Gemini) **MUST NOT** be persisted into presets, written to disk logs, or displayed in the UI. They **MUST** be read from environment variables or secure memory.
 - **Excessive Agency (LLM06)**: If an AI feature proposes file edits or command execution, the tool **MUST** require explicit user confirmation before applying destructive changes.
+
+### 5.8 Freedesktop Shared MIME-info Conformance & Content-Type Integrity
+- Local web servers and file-processing utilities **MUST** determine file media types using the standard **Freedesktop Shared MIME-info Database** (`shared-mime-info-spec` / system MIME database or `mimetypes` library) rather than ad-hoc string splitting.
+- All HTTP responses serving static files **MUST** emit accurate, explicit `Content-Type` headers matching the verified MIME type.
+- Combined with `X-Content-Type-Options: nosniff` (Section 5.3), this prevents browser MIME confusion, polyglot file attacks, and unexpected script execution vulnerabilities.
 
 ---
 
@@ -373,6 +419,12 @@ Applications **MUST** exit with consistent, deterministic status codes:
   - All logs, spinners, or progress messages **MUST** be redirected to `stderr` or suppressed.
   - The JSON output **MUST** be valid, parseable JSON suitable for piping directly into `jq` or an AI agent tool.
 
+### 11.3 Desktop File Manager Integration (Freedesktop org.freedesktop.FileManager1)
+When providing desktop user integration such as a "Reveal in Folder" CLI option (`--reveal`) or a UI button:
+- Applications **MAY** invoke `org.freedesktop.FileManager1.ShowItems` over the user session D-Bus.
+- **Headless & Display Pre-Flight Detection**: Applications **MUST** check for headless environments (`CI=true`, missing `DISPLAY`/`WAYLAND_DISPLAY`, or missing `DBUS_SESSION_BUS_ADDRESS`). In headless environments, D-Bus invocations **MUST** be skipped, and the path printed to standard output.
+- **Timeout Protection**: Any IPC call to the desktop file manager **MUST** implement a non-blocking timeout (<= 1000ms). If D-Bus is unavailable or times out, the tool **MUST NOT** crash or raise an unhandled traceback.
+
 ---
 
 ## Category 12: Documentation & Developer Experience
@@ -473,6 +525,7 @@ Code comments and docstrings bridge the gap between mechanical execution and hum
 - AI coding agents **MUST NOT** strip, truncate, or overwrite existing docstrings, explanatory comments, or license notices during refactoring or code generation.
 - AI coding agents **MUST NOT** generate conversational narrative comments (e.g., `# Now we initialize the variable`, `# Next step: loop through items`).
 - When modifying function signatures or return types, AI agents **MUST** immediately synchronize the associated docstring parameter documentation.
+- **Code & Contract Preservation Cross-Reference**: For the mandatory rule preserving all user-facing features, CLI subcommands, flags, preset keys, and UI controls during refactoring, see [Category 2.6 (Preservation of User-Facing Interaction Surface)](#26-preservation-of-user-facing-interaction-surface--backward-compatibility).
 
 ---
 

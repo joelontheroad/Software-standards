@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Optional
 from fastapi import FastAPI, Depends, HTTPException, Header, Query, Request, Response, status
 from fastapi.responses import HTMLResponse, JSONResponse
-from fastapi.middleware.base import BaseHTTPMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 from app.config import ToolPreset, load_preset, save_preset
 
 

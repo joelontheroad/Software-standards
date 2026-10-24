@@ -56,4 +56,12 @@ I prefer the GNU Affero General Public License v3.0
 The standards repository should be maintained directly in  inside this current repository (Software-standards
 
 Are there other standards categories I should include?
+----------------------------------------
+/plan Review the standards that are linked to https://www.freedesktop.org/wiki/Specifications/.  Pay attention only the ones that are under the headings that contain the words "are in wide use".  
+
+Decide which specifications are pertinent to our programs and create a research document detailing which specifications we should include in our standards. 
+
+Privacy and security are of prime importance, so if you find a standard that indvertently compromises privacy or security and you still would like to use it, flag it in a special section for my review.  Make an argument for why it's good for us to include in our standards and list out mitigation strategies.  
+
+Create a research document for my review.
 

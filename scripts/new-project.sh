@@ -36,12 +36,13 @@ FORCE=false
 #######################################
 show_help() {
     cat << 'EOF'
-Usage: new-project.sh -n <project-name> [options]
+Usage: new-project.sh [options]
 
 Options:
-  -n, --name <name>       Project and CLI command name (kebab-case, e.g. log-scrubber) [Required]
+  -n, --name <name>       Project and CLI command name (kebab-case, e.g. log-scrubber)
+                          (Defaults to directory name when running with --dest .)
   -d, --dest <path>       Destination directory (default: ./<project-name>)
-      --desc <text>       Short description of the utility
+      --desc <text>       Short description of the utility (optional)
       --author <name>     Author or organization name (default: joelontheroad)
       --email <email>     Author email address (default: author@example.com)
   -f, --force             Overwrite or scaffold into directory even if it contains files
@@ -51,7 +52,7 @@ Options:
 Examples:
   ./scripts/new-project.sh -n log-scrubber --desc "Local log file privacy scrubbing utility"
   ./scripts/new-project.sh -n data-vault --install
-  ./scripts/new-project.sh -n acu-gtune -d . --force --install
+  ./scripts/new-project.sh -d . --force --install
 EOF
 }
 
@@ -98,15 +99,28 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+# If project name was not explicitly provided, attempt auto-inference if targeting current or existing directory
+if [[ -z "$PROJECT_NAME" ]]; then
+    TARGET_LOOKUP_DIR="${DEST_DIR:-.}"
+    if [[ -d "$TARGET_LOOKUP_DIR" ]]; then
+        CANDIDATE_NAME=$(basename "$(cd "$TARGET_LOOKUP_DIR" && pwd)" | tr '[:upper:]' '[:lower:]' | tr '_' '-')
+        # Prevent accidentally inferring from the standards repo root or generic folder names
+        if [[ "$CANDIDATE_NAME" =~ ^[a-z0-9-]+$ ]] && [[ "$CANDIDATE_NAME" != "software-standards" ]] && [[ "$CANDIDATE_NAME" != "scripts" ]] && [[ "$CANDIDATE_NAME" != "tmp" ]] && [[ "$CANDIDATE_NAME" != "." ]]; then
+            PROJECT_NAME="$CANDIDATE_NAME"
+            echo "→ Inferred project name '$PROJECT_NAME' from target directory ($(basename "$(cd "$TARGET_LOOKUP_DIR" && pwd)"))"
+        fi
+    fi
+fi
+
 # Validate required arguments
 if [[ -z "$PROJECT_NAME" ]]; then
-    echo "Error: --name <project-name> is required." >&2
+    echo "Error: --name <project-name> is required (or run with -d . inside a named project directory)." >&2
     show_help >&2
     exit 2
 fi
 
 # Automatically normalize project name to lowercase (Python packaging standard)
-PROJECT_NAME=$(echo "$PROJECT_NAME" | tr '[:upper:]' '[:lower:]')
+PROJECT_NAME=$(echo "$PROJECT_NAME" | tr '[:upper:]' '[:lower:]' | tr '_' '-')
 
 # Sanitize project name (lowercase letters, digits, and hyphens)
 if [[ ! "$PROJECT_NAME" =~ ^[a-z0-9-]+$ ]]; then
@@ -117,6 +131,11 @@ fi
 # Set default destination directory if not explicitly provided
 if [[ -z "$DEST_DIR" ]]; then
     DEST_DIR="./$PROJECT_NAME"
+fi
+
+if [[ "$DESCRIPTION" == "A standard-compliant open-source utility" ]]; then
+    echo "→ Using default description: \"$DESCRIPTION\""
+    echo "  (Tip: Pass --desc \"<summary>\" to customize during scaffolding, or refine it in the AI kickoff prompt)."
 fi
 
 # Prevent overwriting existing directory containing files unless --force is used
@@ -361,8 +380,37 @@ fi
 echo "  $PROJECT_NAME --help"
 echo "  pytest"
 echo ""
+# 10. Generate .agents/kickoff.md with ready-to-use prompt
+mkdir -p "$DEST_DIR/.agents"
+cat << EOF > "$DEST_DIR/.agents/kickoff.md"
+# AI Agent Kickoff Prompt for $PROJECT_NAME
+
+Copy and paste this prompt into Antigravity or your AI coding assistant to begin implementation:
+
+\`\`\`markdown
+/plan We are developing '$PROJECT_NAME' in this repository.
+
+This project is governed by our 12 Open Source Software Standards defined in AGENTS.md.
+
+PURPOSE & REQUIREMENTS:
+- Name: $PROJECT_NAME
+- Description: $DESCRIPTION
+- Planned Features:
+  1. <Describe Feature 1>
+  2. <Describe Feature 2>
+
+TASK:
+1. Review the scaffolded codebase in src/app/ and tests/.
+2. Implement the planned features adhering strictly to stream separation (stdout for data, stderr for logs), XDG preset management, and AGPLv3 licensing.
+3. Add subprocess test cases in tests/ to verify CLI exit codes and stream separation.
+4. Run 'check-standards' and 'pytest' to verify complete compliance.
+
+Please present an implementation plan before writing code.
+\`\`\`
+EOF
+
 echo "-----------------------------------------------------------------"
-echo "AI Agent Kickoff Prompt (copy & paste into Antigravity or your AI):"
+echo "AI Agent Kickoff Prompt (saved to: $DEST_DIR/.agents/kickoff.md):"
 echo "-----------------------------------------------------------------"
 cat << EOF
 /plan We are developing '$PROJECT_NAME' in this repository.

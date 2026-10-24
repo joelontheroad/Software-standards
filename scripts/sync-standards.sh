@@ -226,19 +226,32 @@ echo "to bring all existing code into compliance with updated standards:"
 echo ""
 cat << 'EOF'
 -----------------------------------------------------------------
-/plan Review this repository against our updated standards in AGENTS.md:
+/plan Upgrade this project to comply with the latest 12 Open Source Software Standards defined in AGENTS.md and STANDARDS.md:
 
-1. Directive 3 (UI Guidelines):
-   - In server startup (server.py / server.js), format launch URLs as OSC 8
-     clickable links (\033]8;;<URL>\033\\<URL>\033]8;;\033\\) with TTY / NO_COLOR fallback.
-   - Automatically open the user's default browser window on launch unless
-     suppressed or running in headless environments (CI=true, missing DISPLAY/WAYLAND_DISPLAY).
-   - Add the '--no-browser' flag to the CLI 'serve' subcommand.
-2. Directive 12 (Documentation & Comment Discipline):
+1. Directive 1 (Privacy & State Purge):
+   - Verify state reset commands (--reset-config / config reset) permanently delete files (unlink).
+   - Ensure they do NOT move state files to the Desktop Trash Can.
+   - Verify no background autostart entries are registered by default.
+2. Directive 2 (Functional Preservation & Lifecycle):
+   - Verify strict preservation of existing user-facing functionality (CLI subcommands, flags, preset keys, UI controls).
+   - Internal implementations and helper routines may be refactored freely provided all external behaviors and tests pass without regression.
+3. Directive 3 (UI Guidelines & Desktop):
+   - In server startup, format launch URLs as OSC 8 clickable links with TTY / NO_COLOR fallback.
+   - Automatically open the user's default browser on launch unless --no-browser is passed or running headless.
+   - Ensure clipboard writes require an explicit user gesture (--copy or UI button) and NEVER copy tokens or secrets.
+   - If .desktop launchers exist, ensure Exec= invokes the binary directly without shell wrappers (sh -c is prohibited).
+4. Directive 5 (Secure Programming):
+   - Ensure file:// URI parsing rejects remote authorities, decodes safely, and verifies paths reside within allowed directory jails using os.path.realpath.
+   - Ensure HTTP asset responses emit verified Content-Type headers from standard MIME databases alongside X-Content-Type-Options: nosniff.
+5. Directive 11 (Composability):
+   - If a "Reveal in Folder" feature exists, ensure it checks for headless environments and uses a <=1000ms timeout guard.
+6. Directive 12 (Documentation):
    - Ensure each module begins with an architectural summary docstring after the SPDX header.
    - Upgrade public functions and classes to Google Style docstrings (or JSDoc).
    - Add '# SECURITY:' rationale comments on security invariants.
-3. Run test suite and confirm zero regressions.
+7. Run test suite and compliance audit to confirm zero regressions:
+   pytest
+   check-standards
 -----------------------------------------------------------------
 EOF
 echo ""

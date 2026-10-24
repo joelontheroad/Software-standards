@@ -18,17 +18,17 @@ All projects governed by this standards kit:
 
 | Category | Specification Document | Primary Enforcements |
 |---|---|---|
-| **1. Privacy by Design** | [`STANDARDS.md#category-1`](STANDARDS.md#category-1-privacy-by-design--data-minimization) | Zero telemetry; 100% local data residency; username log scrubbing; `--reset-config` |
-| **2. SLM & Licensing** | [`STANDARDS.md#category-2`](STANDARDS.md#category-2-software-lifecycle-management-slm--licensing) | GNU AGPL-3.0; SPDX file headers; SemVer 2.0; AGPLv3 §13 source notice in UI & CLI |
-| **3. UI Guidelines** | [`STANDARDS.md#category-3`](STANDARDS.md#category-3-ui--human-interface-guidelines-cli--web-ui) | POSIX/GNU flags (`--no-browser`); stdout/stderr separation; `NO_COLOR`; clickable CLI URLs (OSC 8); auto-browser launch; WCAG 2.1 AA accessible web UI; zero CDNs |
-| **4. Configuration** | [`STANDARDS.md#category-4`](STANDARDS.md#category-4-configuration--preset-architecture) | XDG Base Directories; YAML presets with comments; Pydantic/Zod schemas; 5-tier precedence |
-| **5. Secure Programming** | [`STANDARDS.md#category-5`](STANDARDS.md#category-5-secure-programming--cybersecurity-hardening) | 127.0.0.1 bind only; ephemeral launch token auth; W3C CSP headers; safe YAML; path canonicalization |
+| **1. Privacy by Design** | [`STANDARDS.md#category-1`](STANDARDS.md#category-1-privacy-by-design--data-minimization) | Zero telemetry; Freedesktop XDG local data residency (`basedir-spec`); username scrubbing; permanent data erasure (Desktop Trash strictly prohibited for state resets); zero unsolicited autostart |
+| **2. SLM, Compatibility & Licensing** | [`STANDARDS.md#category-2`](STANDARDS.md#category-2-software-lifecycle-management-slm-compatibility--licensing) | GNU AGPL-3.0; SPDX file headers; SemVer 2.0; AGPLv3 §13 source notice in UI & CLI; strict preservation of user-facing functionality (CLI commands/flags, presets, UI) with freedom to refactor internals |
+| **3. UI Guidelines** | [`STANDARDS.md#category-3`](STANDARDS.md#category-3-ui--human-interface-guidelines-cli--web-ui) | POSIX/GNU flags (`--no-browser`); stdout/stderr separation; `NO_COLOR`; clickable CLI URLs (OSC 8); auto-browser launch; WCAG 2.1 AA accessible web UI; zero CDNs; safe `.desktop` launchers without shell wrappers; zero silent clipboard writes |
+| **4. Configuration** | [`STANDARDS.md#category-4`](STANDARDS.md#category-4-configuration--preset-architecture) | Freedesktop XDG Base Directories (`basedir-spec` v0.8); YAML presets with comments; Pydantic/Zod schemas; 5-tier precedence |
+| **5. Secure Programming** | [`STANDARDS.md#category-5`](STANDARDS.md#category-5-secure-programming--cybersecurity-hardening) | 127.0.0.1 bind only; ephemeral launch token auth; W3C CSP headers; safe YAML; path canonicalization & safe RFC 8089 File URIs; Shared MIME-info database with `nosniff` |
 | **6. Supply Chain** | [`STANDARDS.md#category-6`](STANDARDS.md#category-6-supply-chain-security--packaging) | OpenSSF Scorecard (pinned action SHAs, secret scan, audit); SLSA 1-2 provenance; SBOM; SHA-256 |
 | **7. Testing & QA** | [`STANDARDS.md#category-7`](STANDARDS.md#category-7-testing--quality-assurance) | Subprocess CLI exit-code & stream tests; isolated temporary directory fixtures (`tmp_path`) |
 | **8. Observability** | [`STANDARDS.md#category-8`](STANDARDS.md#category-8-observability-logging--error-handling) | Standard exit codes (0/1/2/130); clean single-line error messages without stack traces |
-| **9. Portability** | [`STANDARDS.md#category-9`](STANDARDS.md#category-9-portability--cross-platform-compatibility) | Explicit `encoding="utf-8"`; ISO 8601 UTC timestamps; `pathlib.Path` / `node:path`; Git LF |
+| **9. Portability** | [`STANDARDS.md#category-9`](STANDARDS.md#category-9-portability--cross-platform-compatibility) | Universal UTF-8 encoding on all file/stream I/O; ISO 8601 UTC timestamps; `pathlib.Path` / `node:path`; Git LF |
 | **10. Performance** | [`STANDARDS.md#category-10`](STANDARDS.md#category-10-process-lifecycle--performance) | Sub-200ms CLI startup; lazy imports for web servers; streaming I/O; graceful `SIGINT` handling |
-| **11. Composability** | [`STANDARDS.md#category-11`](STANDARDS.md#category-11-interoperability--unix-composability) | Stdin piping support (`-`); machine-readable `--json` output flag |
+| **11. Composability** | [`STANDARDS.md#category-11`](STANDARDS.md#category-11-interoperability--unix-composability) | Stdin piping support (`-`); machine-readable `--json` output flag; File Manager D-Bus (`org.freedesktop.FileManager1`) with headless pre-flight |
 | **12. Documentation** | [`STANDARDS.md#category-12`](STANDARDS.md#category-12-documentation--developer-experience) | 6-part standard `README.md`; `SECURITY.md` policy; Google Style / JSDoc docstrings; "why, not what" comment discipline |
 
 ---
@@ -90,9 +90,9 @@ curl -sSL -H "Authorization: Bearer $STANDARDS_TOKEN" -H "Accept: application/vn
 
 | Flag | Description | Default |
 |---|---|---|
-| `-n, --name <name>` | Project and CLI command name (kebab-case) | *Required* |
+| `-n, --name <name>` | Project and CLI command name (kebab-case; auto-inferred from folder if running with `--dest .`) | *Required or auto-inferred* |
 | `-d, --dest <path>` | Destination directory path | `./<project-name>` |
-| `--desc <text>` | Short utility description | `"A standard-compliant open-source utility"` |
+| `--desc <text>` | Short utility description (optional) | `"A standard-compliant open-source utility"` |
 | `--author <name>` | Author or organization name | `"joelontheroad"` |
 | `--email <email>` | Author email address | `"author@example.com"` |
 | `-f, --force` | Overwrite or scaffold into directory even if it contains files | `false` |
@@ -110,13 +110,16 @@ curl -sSL -H "Authorization: Bearer $STANDARDS_TOKEN" -H "Accept: application/vn
 5. **Git Initialization**: Reinitializes or configures the Git repository (`main` branch).
 6. **Environment Setup**: If `--install` is passed, creates `.venv` and runs `pip install -e ".[dev,web]"`.
 7. **Instant Audit**: Executes [`scripts/check-compliance.py`](scripts/check-compliance.py) to guarantee **`[PASS]`** out of the box.
-8. **Generates AI Prompt**: Displays the ready-to-use prompt to hand off development to your AI coding assistant.
+8. **Generates AI Prompt**: Displays the ready-to-use prompt and saves it directly to `.agents/kickoff.md` inside the new project.
+
+> [!TIP]
+> **Architectural Guidance**: See the [Scaffolding and AI Prompt Q&A Guide](docs/scaffolding-and-ai-prompt-qa.md) for detailed analysis of the structural necessity of Project Name during scaffolding versus the mission-critical semantic role of Project Description in AI prompting.
 
 ---
 
 ### AI Coding Agent Kickoff Prompt
 
-Once your project is scaffolded, open the project directory in your AI assistant (e.g., Antigravity, Claude Code, Cursor) and paste this prompt:
+Once your project is scaffolded, open the project directory in your AI assistant (e.g., Antigravity, Claude Code, Cursor) and paste the prompt saved in `.agents/kickoff.md`:
 
 ```markdown
 /plan We are developing '<PROJECT_NAME>' in this repository.
@@ -147,30 +150,30 @@ Please present an implementation plan before writing any code.
 
 ---
 
-### 2. Synchronizing Standards into Existing & Uncommitted Repositories (`sync-standards.sh`)
+### 2. Updating Existing Programs & Synchronizing Standards (`sync-standards.sh`)
 
-When standards, AI agent directives, or security guidelines evolve—or when you want to apply these standards to an existing local project **before** it is committed or pushed to GitHub—you can safely synchronize them without disturbing your application code.
+When standards, AI agent directives, or security guidelines evolve—such as when incorporating new Freedesktop.org specifications or privacy/security controls—you can easily upgrade any existing program that uses these standards.
 
 > [!NOTE]
 > Because `Software-standards` is a private repository, unauthenticated `curl raw.githubusercontent.com...` requests return `404 Not Found`. Use one of the authenticated methods below.
 
-#### A. Remote Update via GitHub CLI `gh` (Recommended for Private Repo)
-Inside any existing or uncommitted project directory on a machine with `gh` logged in:
+#### Step 1: Synchronize Governance & Directives into the Existing Project
+Choose one of the following methods from inside your existing project's directory:
+
+##### A. Remote Update via GitHub CLI `gh` (Recommended for Private Repo)
 ```bash
 gh api -H "Accept: application/vnd.github.v3.raw" \
   repos/joelontheroad/Software-standards/contents/scripts/sync-standards.sh | bash -s -- --force .
 ```
 
-#### B. Remote Update via Ephemeral SSH Clone (No Token or CLI Required)
-If Git SSH keys (`git@github.com...`) are configured on your machine:
+##### B. Remote Update via Ephemeral SSH Clone (No Token or CLI Required)
 ```bash
 git clone --depth 1 git@github.com:joelontheroad/Software-standards.git /tmp/standards \
   && /tmp/standards/scripts/sync-standards.sh --force . \
   && rm -rf /tmp/standards
 ```
 
-#### C. Remote Update via `curl` (Using Personal Access Token)
-On headless servers, VMs, or CI runners with a token:
+##### C. Remote Update via `curl` (Using Personal Access Token)
 ```bash
 export GITHUB_TOKEN="ghp_yourTokenHere"  # or STANDARDS_TOKEN
 
@@ -179,23 +182,56 @@ curl -sSL -H "Authorization: Bearer $GITHUB_TOKEN" \
   https://api.github.com/repos/joelontheroad/Software-standards/contents/scripts/sync-standards.sh | bash -s -- --force .
 ```
 
-#### D. Local Update (Using local clone on the same machine)
-Inside your target project directory:
+##### D. Local Update (Using local clone on the same machine)
 ```bash
 "/mnt/joelg-docs/Personal/Software Projects/Software-standards/scripts/sync-standards.sh" --force .
 ```
-Or from the `Software-standards` repository:
-```bash
-./scripts/sync-standards.sh --force /path/to/my-existing-project
-```
 *(Passing `--force` allows synchronizing even if the target folder contains uncommitted working tree changes).*
 
-#### What `sync-standards.sh` Does:
-1. **Refreshes Governance & Agent Rules**: Updates `AGENTS.md` and `.agents/rules/enforce-standards.md` with the latest directives (including clickable CLI URLs and browser auto-launch).
+#### What `sync-standards.sh` Updates Automatically:
+1. **Refreshes Governance & Agent Rules**: Updates `AGENTS.md` and `.agents/rules/enforce-standards.md` with the latest directives (strict preservation of user-facing functionality with internal refactoring freedom, Freedesktop XDG base directory v0.8, Trash ban on state resets, autostart restrictions, safe `.desktop` execution, clipboard safety, safe File URIs, and Shared MIME-info).
 2. **Synchronizes Core Legal & Security Files**: Adds missing `LICENSE` (GNU AGPLv3), `SECURITY.md`, and `.gitattributes` if not already present.
 3. **Inspects Linter Configs**: Checks `pyproject.toml` for Google Style docstring rules (`pydocstyle` / `D`).
 4. **Runs Compliance Audit**: Scans the project with `check-compliance.py`.
-5. **Provides AI Refactoring Prompt**: Prints the prompt to run in your AI coding assistant to bring existing code into full compliance.
+
+---
+
+#### Step 2: Audit & Refactor Code for Updated Standards Compliance
+Once the governance files are refreshed, verify that the application code adheres to the updated standards using the checklist below:
+
+| Dimension | Verification Action | Standards Reference |
+|---|---|---|
+| **Preservation of User-Facing Functionality** | Verify that no user-facing CLI commands, subcommands, flags, configuration preset keys, or Web UI controls were deleted, renamed, or broken during refactorings. Confirm that internal refactorings preserve external contracts and all existing tests pass without regression. | [Category 2.6](STANDARDS.md#26-preservation-of-user-facing-interaction-surface--backward-compatibility) |
+| **Deterministic State Purge** | Verify that `--reset-config` or `config reset` permanently unlinks/shreds files and **does NOT** move them to Desktop Trash (`trash-spec`), which leaks path metadata and timestamps in `.trashinfo` files. | [Category 1.4](STANDARDS.md#14-state-ephemerality--deterministic-purge) |
+| **No Unsolicited Autostart** | Verify the application does not install background entries in `$XDG_CONFIG_HOME/autostart` or attempt removable media triggers. | [Category 1.6](STANDARDS.md#16-prohibition-on-unsolicited-persistence--autostart) |
+| **Clipboard Safety** | Verify clipboard writes require an explicit user gesture (`--copy` flag or UI button) and **never** silently write or copy ephemeral launch tokens, passwords, or secrets. | [Category 3.7](STANDARDS.md#37-clipboard-safety--interaction-guidelines-freedesktop-consensus) |
+| **Safe Desktop Launchers** | Verify any generated `.desktop` files point directly to the binary (`Exec=mytool launch --no-browser --`) without shell wrappers (`Exec=sh -c` is prohibited), and quote arguments (`"%u"`). | [Category 3.6](STANDARDS.md#36-freedesktop-desktop-entry-conformance-desktop) |
+| **Safe File URIs** | Verify any handling of `file://` URIs rejects remote hostnames (must be empty or localhost) and resolves paths strictly within designated directory jails using `os.path.realpath`. | [Category 5.4](STANDARDS.md#54-mitre-cwe-top-25-protections) |
+| **MIME Type Integrity** | Ensure local web servers determine asset MIME types using standard system MIME databases (`shared-mime-info`) and serve assets with explicit `Content-Type` headers paired with `X-Content-Type-Options: nosniff`. | [Category 5.8](STANDARDS.md#58-freedesktop-shared-mime-info-conformance--content-type-integrity) |
+| **File Manager D-Bus** | If providing a "Reveal in Folder" option (`--reveal`), verify headless detection and <=1000ms timeout protection. | [Category 11.3](STANDARDS.md#113-desktop-file-manager-integration-freedesktop-orgfreedesktopfilemanager1) |
+
+---
+
+#### Step 3: Automated Upgrade via AI Coding Agent
+To automate the refactoring process, open your existing project in your AI coding assistant (Antigravity, Claude Code, Cursor) and paste the following prompt:
+
+```markdown
+/plan Upgrade this project to comply with the latest 12 Open Source Software Standards defined in AGENTS.md and STANDARDS.md.
+
+Specifically audit and refactor the codebase for the updated standards:
+1. Privacy & State Purge: Verify that state reset commands (--reset-config / config reset) permanently delete files (unlink). Ensure they do NOT move files to the Desktop Trash Can.
+2. User-Facing Contract Preservation: Verify that no existing user-facing functionality, CLI commands, subcommands, flags, YAML preset keys, or Web UI controls are deleted, renamed, or disabled. Refactorings must be strictly behavior-preserving.
+3. Autostart: Ensure no background autostart entries are registered by default.
+4. Clipboard Safety: Ensure clipboard operations require an explicit user gesture (--copy or UI button click) and NEVER copy ephemeral launch tokens or secrets.
+5. Desktop Launchers: If .desktop files are generated, ensure Exec= points directly to the binary without shell wrappers (sh -c is prohibited) and quotes parameters ("%u").
+6. File URIs & Path Traversal: Ensure file:// URI parsing rejects remote authorities, decodes safely, and verifies paths reside within allowed directory jails using os.path.realpath.
+7. Asset Serving: Ensure HTTP asset responses emit verified Content-Type headers from standard MIME databases alongside X-Content-Type-Options: nosniff.
+8. Interoperability: If a "Reveal in Folder" feature exists, ensure it checks for headless environments and uses a <=1000ms timeout guard.
+
+Run the test suite and compliance check when finished:
+pytest
+check-standards
+```
 
 ---
 
