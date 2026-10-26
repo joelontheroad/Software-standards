@@ -193,12 +193,10 @@ if [[ ! -f "$TARGET_DIR/.gitattributes" ]]; then
 fi
 
 # 6. Synchronize GitHub Actions CI & Release Workflows
-if [[ -d "$TARGET_DIR/.github/workflows" ]]; then
-    echo "→ Updating .github/workflows/ci.yml..."
-    fetch_or_copy "templates/common/.github/workflows/ci.yml" "$TARGET_DIR/.github/workflows/ci.yml"
-    echo "→ Updating .github/workflows/release.yml..."
-    fetch_or_copy "templates/common/.github/workflows/release.yml" "$TARGET_DIR/.github/workflows/release.yml"
-fi
+echo "→ Synchronizing .github/workflows/ci.yml..."
+fetch_or_copy "templates/common/.github/workflows/ci.yml" "$TARGET_DIR/.github/workflows/ci.yml"
+echo "→ Synchronizing .github/workflows/release.yml..."
+fetch_or_copy "templates/common/.github/workflows/release.yml" "$TARGET_DIR/.github/workflows/release.yml"
 
 # 7. Check Python pyproject.toml for ruff pydocstyle configuration
 if [[ -f "$TARGET_DIR/pyproject.toml" ]]; then
