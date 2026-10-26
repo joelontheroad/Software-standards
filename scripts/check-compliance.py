@@ -129,6 +129,13 @@ def check_workflow_compliance(file_path: Path, content: str) -> list[str]:
                     f"{file_path}:{idx}: [SUPPLY-CHAIN] Action '{action}' not pinned to a 40-character commit SHA (found '{ref}')."
                 )
 
+        # 3. Prohibit 'secrets' context inside 'if:' conditions (GitHub Actions invalid workflow syntax)
+        if re.search(r'^\s*if:.*secrets\.', line):
+            errors.append(
+                f"{file_path}:{idx}: [GITHUB-ACTIONS] Prohibited 'secrets' context in 'if' condition. "
+                f"GitHub Actions rejects secrets in 'if' conditionals. Use an env variable and step output."
+            )
+
     return errors
 
 
