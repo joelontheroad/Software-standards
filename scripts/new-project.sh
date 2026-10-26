@@ -284,11 +284,11 @@ cat << EOF > "$DEST_DIR/README.md"
 # $PROJECT_NAME
 
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
-[![Standards: 12-Category](https://img.shields.io/badge/Standards-Compliant-emerald.svg)](https://github.com/joelontheroad/Software-standards)
+[![Standards: 13-Category](https://img.shields.io/badge/Standards-Compliant-emerald.svg)](https://github.com/joelontheroad/Software-standards)
 
 $DESCRIPTION
 
-This project strictly adheres to the 12 Open Source Software Standards:
+This project strictly adheres to the 13 Open Source Software Standards:
 - **Zero Telemetry & Local Data**: Presets saved locally in \`\$XDG_CONFIG_HOME/$PROJECT_NAME/\`.
 - **GNU AGPL-3.0-or-later**: Free and open source with full user rights.
 - **Strict Localhost Security**: Web servers default strictly to \`127.0.0.1\` with ephemeral token authentication.
@@ -390,7 +390,7 @@ Copy and paste this prompt into Antigravity or your AI coding assistant to begin
 \`\`\`markdown
 /plan We are developing '$PROJECT_NAME' in this repository.
 
-This project is governed by our 12 Open Source Software Standards defined in AGENTS.md.
+This project is governed by our 13 Open Source Software Standards defined in AGENTS.md.
 
 PURPOSE & REQUIREMENTS:
 - Name: $PROJECT_NAME
@@ -415,7 +415,7 @@ echo "-----------------------------------------------------------------"
 cat << EOF
 /plan We are developing '$PROJECT_NAME' in this repository.
 
-This project is governed by our 12 Open Source Software Standards defined in AGENTS.md.
+This project is governed by our 13 Open Source Software Standards defined in AGENTS.md.
 
 PURPOSE & REQUIREMENTS:
 - Name: $PROJECT_NAME

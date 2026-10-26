@@ -88,5 +88,6 @@ temp/
 scratch/
 *.tmp
 
-# Notes and Prompts
+# Notes and Prompts,etc
 AI-prompts-for-software-standards.txt
+SE Learning Plan.md

@@ -105,9 +105,60 @@ class PythonASTSecurityAuditor(ast.NodeVisitor):
         self.generic_visit(node)
 
 
-def check_non_python_security(file_path: Path, content: str) -> list[str]:
-    """Line-based audit for JavaScript, TypeScript, and HTML files."""
+def check_workflow_compliance(file_path: Path, content: str) -> list[str]:
+    """Audit GitHub Actions workflow files for syntax validity and OpenSSF pin rules."""
     errors = []
+    lines = content.splitlines()
+
+    for idx, line in enumerate(lines, start=1):
+        # 1. Prohibit job-level hashFiles (evaluated before runners are provisioned)
+        if re.search(r'^\s{4}if:.*hashFiles\(', line):
+            errors.append(
+                f"{file_path}:{idx}: [GITHUB-ACTIONS] Prohibited 'hashFiles()' in job-level 'if'. "
+                f"Use a detect-stack job with outputs or step-level 'if'."
+            )
+
+        # 2. OpenSSF Scorecard: Verify third-party action pinning to 40-char commit SHA
+        match = re.search(r'uses:\s*([a-zA-Z0-9_\-]+/[a-zA-Z0-9_\-]+)@([^\s#]+)', line)
+        if match:
+            action, ref = match.groups()
+            if not re.fullmatch(r'[0-9a-f]{40}', ref):
+                errors.append(
+                    f"{file_path}:{idx}: [SUPPLY-CHAIN] Action '{action}' not pinned to a 40-character commit SHA (found '{ref}')."
+                )
+
+    return errors
+
+
+def check_html_ui_compliance(file_path: Path, content: str) -> list[str]:
+    """Audit HTML files for required Global UI Error Boundary."""
+    errors = []
+    # If the file defines an active UI with scripts, ensure the global error boundary is present
+    if "<script" in content.lower() and "<body" in content.lower():
+        has_error_boundary = (
+            "window.addEventListener('error'" in content
+            or 'window.addEventListener("error"' in content
+            or "window.onerror" in content
+        )
+        if not has_error_boundary:
+            errors.append(
+                f"{file_path}: [UI] Web UI HTML missing mandatory Global Error Boundary (window.addEventListener('error', ...)). See Directive 3 & 13."
+            )
+    return errors
+
+
+def check_non_python_security(file_path: Path, content: str) -> list[str]:
+    """Line-based audit for JavaScript, TypeScript, HTML, and Workflow files."""
+    errors = []
+
+    # Check Workflow compliance
+    if file_path.suffix in {".yaml", ".yml"} and (".github/workflows" in str(file_path) or "workflows" in str(file_path)):
+        errors.extend(check_workflow_compliance(file_path, content))
+
+    # Check HTML UI compliance
+    if file_path.suffix == ".html":
+        errors.extend(check_html_ui_compliance(file_path, content))
+
     lines = content.splitlines()
 
     for idx, line in enumerate(lines, start=1):

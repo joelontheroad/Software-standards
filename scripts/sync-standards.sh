@@ -192,7 +192,15 @@ if [[ ! -f "$TARGET_DIR/.gitattributes" ]]; then
     fetch_or_copy "templates/common/.gitattributes" "$TARGET_DIR/.gitattributes"
 fi
 
-# 6. Check Python pyproject.toml for ruff pydocstyle configuration
+# 6. Synchronize GitHub Actions CI & Release Workflows
+if [[ -d "$TARGET_DIR/.github/workflows" ]]; then
+    echo "→ Updating .github/workflows/ci.yml..."
+    fetch_or_copy "templates/common/.github/workflows/ci.yml" "$TARGET_DIR/.github/workflows/ci.yml"
+    echo "→ Updating .github/workflows/release.yml..."
+    fetch_or_copy "templates/common/.github/workflows/release.yml" "$TARGET_DIR/.github/workflows/release.yml"
+fi
+
+# 7. Check Python pyproject.toml for ruff pydocstyle configuration
 if [[ -f "$TARGET_DIR/pyproject.toml" ]]; then
     echo "→ Inspecting Python pyproject.toml..."
     if ! grep -q 'convention = "google"' "$TARGET_DIR/pyproject.toml" 2>/dev/null; then
@@ -249,7 +257,12 @@ cat << 'EOF'
    - Ensure each module begins with an architectural summary docstring after the SPDX header.
    - Upgrade public functions and classes to Google Style docstrings (or JSDoc).
    - Add '# SECURITY:' rationale comments on security invariants.
-7. Run test suite and compliance audit to confirm zero regressions:
+7. Directive 13 (Verification Discipline & Zero Silent Failures):
+   - In Web UI, ensure top-level global error boundary (window.onerror & unhandledrejection) is present to prevent silent "nothing happened" crashes.
+   - Ensure all disabled buttons provide a visible explanation or tooltip explaining what is missing.
+   - Ensure all asynchronous tasks/polling use strictly unique task IDs (never colliding with stale state).
+   - Run static linter (no-undef) across all JavaScript/Python code and NEVER claim a bug is fixed without behavioral proof.
+8. Run test suite and compliance audit to confirm zero regressions:
    pytest
    check-standards
 -----------------------------------------------------------------

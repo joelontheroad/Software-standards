@@ -1,6 +1,6 @@
 # AI Agent Engineering Directive: Open Source Standards Compliance
 
-> **CRITICAL DIRECTIVE FOR AI CODING AGENTS**: When generating or modifying code, configuration, or documentation in this repository or any derived project, you **MUST** strictly adhere to the following 12 non-negotiable standards. Do not deviate without explicit user instructions.
+> **CRITICAL DIRECTIVE FOR AI CODING AGENTS**: When generating or modifying code, configuration, or documentation in this repository or any derived project, you **MUST** strictly adhere to the following 13 non-negotiable standards. Do not deviate without explicit user instructions.
 
 ---
 
@@ -40,6 +40,9 @@
   - Show unsaved preset modifications visually (e.g. `Default *`).
   - Safe Desktop Entries (`desktop-entry-spec`): For tools with browser interfaces, generate `.desktop` launchers that invoke binaries directly without shell wrappers (`Exec=sh -c` is STRICTLY PROHIBITED). Double-quote parameters (`"%u"`) and terminate options with `--`.
   - Clipboard Security: NEVER silently write to the system clipboard. Writes MUST require an explicit user gesture (`--copy` CLI flag or UI button click). NEVER copy ephemeral launch tokens, secrets, or passwords to the clipboard. Prioritize Wayland tools (`wl-copy`) over legacy X11 tools (`xclip`).
+  - Global Error Boundary (Zero Silent Crashes): Every Web UI MUST include top-level unhandled error listeners (`window.addEventListener('error')` and `window.addEventListener('unhandledrejection')`) that render a high-visibility, dismissible error banner at the top of the viewport. Uncaught errors MUST NEVER silently terminate script execution without user-visible feedback.
+  - Transparent Control State: When an action button or UI control is disabled or inactive, the UI MUST provide a visible explanation (via tooltip, sub-label, or title) detailing the missing prerequisite or path (e.g. "Subtitles not detected at `<path>`").
+  - Unique Operation & Task IDs: Frontend asynchronous job triggers and polling routines MUST generate cryptographically random or timestamp-unique IDs per invocation (e.g. `'task_' + Date.now() + '_' + crypto.randomUUID()`). Reusing dirty or retained task IDs from prior executions is strictly prohibited.
 
 ## 4. Configuration & Preset Management
 - **Freedesktop XDG Base Directory (`basedir-spec` v0.8)**:
@@ -114,3 +117,13 @@
   - NEVER delete, truncate, or overwrite existing docstrings, explanatory comments, or license notices during refactoring.
   - NEVER generate conversational narrative filler (`# Now we do...`).
   - Keep docstring parameters and return contracts synchronized when modifying signatures.
+
+## 13. Verification Discipline & "Proof-of-Fix" Protocol
+- **Prohibition of Assumptive Completion**: NEVER declare a bug, feature, or refactoring "fixed" or "complete" based solely on reading code diffs or internal code inspection. Every fix claim MUST be validated by running the appropriate test, linter, or live verification script.
+- **Dangling Reference Auditing**: Before completing any refactoring, renaming, or deletion of functions, classes, properties, or DOM element IDs, you MUST perform a repository-wide search (`grep_search`) to verify that zero orphaned call sites or dangling references remain.
+- **Frontend Static Safety**: All JavaScript/TypeScript files and `<script>` blocks MUST have zero undeclared identifier errors. Web projects must maintain clean static audits (`no-undef`, `no-unused-vars`).
+- **Closed-Loop Behavioral Verification**:
+  - For UI Bugs: The agent must verify the interaction either via browser execution or simulated DOM event testing, confirming the handler executes completely without throwing unhandled exceptions.
+  - For Path / File Discovery Bugs: The agent must verify the discovery logic against realistic filename variants and directory fixtures on disk (e.g. handling `{base}.ass` as well as `{base}_voice_titles.ass`).
+  - For CLI / Process Bugs: The agent must invoke the CLI entry point as a subprocess, asserting return codes and stream separation.
+

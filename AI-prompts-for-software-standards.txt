@@ -64,4 +64,150 @@ Decide which specifications are pertinent to our programs and create a research 
 Privacy and security are of prime importance, so if you find a standard that indvertently compromises privacy or security and you still would like to use it, flag it in a special section for my review.  Make an argument for why it's good for us to include in our standards and list out mitigation strategies.  
 
 Create a research document for my review.
+------------------------------------------
+/plan  I'm creating a program and the AI agent tells me that it's fixed when it's not.  The Root Cause analysis typically says something wasn't connected correctly.  Or a UI element was hidden when it shouldn't be.  
 
+These sound like common problems.  Analyze them to see if they stem from the same problem.  Do the research and create an implementation plan, if this problem is solveable. 
+
+Here are are few samples of root cause analysis from implementation plan:
+
+
+
+===================================
+What Succeeded
+The subtitle discovery and metadata resolution fix in 
+backend/app.py
+ worked as intended:
+
+When the video is loaded or reloaded via "Browse", _resolve_ass_file_path() correctly discovers katie-first-ad-1080-1080-2.4-bug_voice_titles.ass.
+/api/video-info returns has_existing_ass: true.
+In 
+frontend/app.js
+, btnBurnOnly.classList.remove("disabled") executes, enabling the button and activating its hover glow/highlight styles (.card-action-burn:hover:not(.disabled)).
+Why "Nothing Happened" When Clicked (The Hidden JavaScript Crash)
+When the user clicks the "Burn Video" button (#btnBurnOnly), it triggers executeBurnVideo(). A simulated execution trace revealed the exact point of failure:
+
+
+CRASH in executeBurnVideo: TypeError: updateDrawerStatus is not a function
+    at Object.executeBurnVideo (frontend/app.js:3585:5)
+Undeclared globals accessed before crash: [ 'updateDrawerStatus' ]
+The 3 Underlying Issues in executeBurnVideo:
+Uncaught Call to Non-Existent updateDrawerStatus() (Line 3585):
+
+javascript
+
+updateWorkflowStepper('burning');
+updateDrawerStatus('Burning subtitles with NVIDIA RTX A5000 NVENC...', 'normal'); // <-- CRASH HERE
+if (btnBurnOnly) btnBurnOnly.classList.add('disabled');
+updateDrawerStatus was an internal helper from an earlier in-drawer subtitle editor that was deprecated when the program transitioned to the "Subtitle File & External Editor Hub" (Step 2). Crucially, line 3585 was positioned outside and before the try { ... } catch (err) block. When JavaScript encounters an unhandled ReferenceError, script execution immediately terminates without:
+
+Showing the thermometer progress meter (Line 3601).
+Starting polling (Line 3603).
+Sending the HTTP POST request to /api/burn-video (Line 3618).
+Displaying any error alert or UI dialog. To the user, clicking the button produced zero visual reaction—literally "nothing happened."
+Undeclared Element References (btnDrawerBurn, btnModalSaveAndBurn): At lines 3587–3594 and 3673–3680:
+
+javascript
+
+if (btnDrawerBurn) { btnDrawerBurn.disabled = true; ... }
+if (btnModalSaveAndBurn) { btnModalSaveAndBurn.disabled = true; ... }
+Neither btnDrawerBurn nor btnModalSaveAndBurn are declared with const, let, or var, and neither element exists in 
+frontend/index.html
+. In standard browser JavaScript, evaluating an undeclared identifier (if (btnDrawerBurn)) throws an unhandled ReferenceError.
+
+Undeclared cardSubtitleDrawer Reference (Line 3363): In btnInspectAssStudio.addEventListener:
+
+javascript
+
+if (cardSubtitleDrawer) { cardSubtitleDrawer.classList.remove("collapsed"); ... }
+cardSubtitleDrawer was replaced by cardAssFileHub, but the reference was never updated.
+===================================
+1. Problem Statement & Root Cause Diagnosis
+User Scenario
+The user transcribed and burned a video. They subsequently opened the generated .ass subtitle file (katie-first-ad-1080-1080-2.4-bug_voice_titles.ass) directly from outside the program using the operating system's file manager / text editor to make edits. Upon returning to Voice Highlighter:
+
+Clicking the "Burn Video" button resulted in "nothing happening" (no burn progress, no visual change).
+Clicking "Browse" in the Video Source Section to reload the video file caused the "Burn Video" button to become inactive / disabled, despite the .ass file residing directly alongside the video.
+Refreshing the browser page produced the exact same inactive outcome.
+Root Cause Analysis
+A. Why "Nothing Happened" When Clicking "Burn Video"
+Undeclared editorState Reference (JavaScript ReferenceError): In 
+frontend/app.js
+:
+
+javascript
+
+const effectiveAss = editorState.assPath || state.existingAssPath;
+if (!effectiveAss && !editorState.currentContent) { ... }
+editorState is not declared anywhere in app.js or index.html. In JavaScript, evaluating an undeclared identifier throws an unhandled ReferenceError: editorState is not defined. Because this occurred inside the click event listener prior to any HTTP request or error handler, browser execution stopped abruptly and silently—giving the exact appearance of "nothing happening." (Similar undeclared references exist at lines 2597, 2834, 2855, 2870, 3175, and 3573).
+
+Completed Task ID Collision in Polling: In 
+frontend/app.js
+:
+
+javascript
+
+const burnTaskId = state.currentTaskId || editorState.taskId || (`burn_${Date.now()}`);
+state.currentTaskId was retained from the earlier completed transcription job. When the frontend started polling /api/status/${burnTaskId}, the server immediately returned { status: "completed" } from the previous run. The polling handler immediately cleared the interval and hid the progress thermometer after 1000ms.
+
+Filesystem Path vs. API URL Desynchronization: In 
+frontend/app.js
+: state.existingAssPath = data.download_url; stored an HTTP URL (/api/download/<id>) instead of the canonical filesystem path (/path/to/video_voice_titles.ass).
+
+B. Why "Burn Video" Became Inactive Upon Reload or Refresh
+Subtitle Discovery Blindspot in fetch_video_info: In 
+backend/app.py
+:
+python
+
+clean_path, media_dir, base_name, sibling_wav, sibling_ass = get_sibling_paths(req.video_path)
+...
+has_ass = os.path.exists(sibling_ass)
+get_sibling_paths() only checks for {base_name}.ass. However, Voice Highlighter's default deliverable naming convention produces {base_name}_voice_titles.ass. Because katie-first-ad-1080-1080-2.4-bug.ass did not exist on disk, fetch_video_info reported:
+json
+
+{ "has_existing_ass": false, "existing_ass_path": null }
+Frontend UI Deactivation on Missing Subtitle Signal: In 
+frontend/app.js
+: When data.has_existing_ass is false, loadVideoInfo enters the else block:
+javascript
+
+state.hasExistingAss = false;
+state.existingAssPath = null;
+btnBurnOnly.classList.add("disabled");
+btnBurnOnly.title = "Generate or load subtitles first";
+updateWorkflowStepper('idle');
+Reloading the video via "Browse" or pressing browser refresh called loadVideoInfo(), received has_existing_ass: false, and disabled the "Burn Video" button.
+===================================
+Root Cause Analysis
+Pre-Existing Models Were Disconnected / Hidden:
+
+The user's system already has faster-whisper-large-v3 and faster-whisper-base fully downloaded and cached in the standard user directory:
+text
+
+/home/joelg/.cache/huggingface/hub/models--Systran--faster-whisper-large-v3
+/home/joelg/.cache/huggingface/hub/models--Systran--faster-whisper-base
+In 
+backend/transcriber.py
+, lines 146–149 forcibly redirected HF_HOME and download_root to a newly initialized, completely empty directory:
+python
+
+models_dir = get_cache_dir() / "models" # ~/.cache/voice-highlighter/models
+os.environ["HF_HOME"] = str(models_dir / "hf")
+# and later:
+whisperx.load_model(..., download_root=str(models_dir), local_files_only=True)
+Because ~/.cache/voice-highlighter/models had just been created, it contained zero model snapshots. Faster-Whisper looked strictly inside that empty directory, completely blinded to the 3GB large-v3 snapshot already sitting in ~/.cache/huggingface/hub.
+Immutable Import-Time Constant Poisoning (HF_HUB_OFFLINE):
+
+Setting os.environ["HF_HUB_OFFLINE"] = "1" before importing WhisperX poisoned Hugging Face's global constant:
+python
+
+# In huggingface_hub.constants:
+HF_HUB_OFFLINE = _is_true(os.environ.get("HF_HUB_OFFLINE"))
+In Python, module-level constants evaluate once upon import. When the initial local load failed and the except block attempted to fall back or allow download by doing os.environ.pop("HF_HUB_OFFLINE", None), huggingface_hub.constants.HF_HUB_OFFLINE remained True in memory. Any subsequent call immediately raised OfflineModeIsEnabled.
+Alignment Model Disconnection:
+
+The torchaudio wav2vec2 forced-alignment checkpoint for English (wav2vec2_fairseq_base_ls960_asr_ls960.pth) is already present on disk in /home/joelg/.cache/torch/hub/checkpoints/.
+Passing model_dir=str(models_dir / "align") diverted torchaudio away from its default checkpoint repository to an empty directory.
+
+---------------------------------
