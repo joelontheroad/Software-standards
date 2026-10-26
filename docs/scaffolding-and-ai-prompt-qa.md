@@ -182,3 +182,63 @@ TASK FOR AI AGENT:
    - `new-project.sh` writes the populated prompt directly to `.agents/kickoff.md` inside the scaffolded repository so it is immediately accessible.
 3. **Documented in `README.md`**:
    - The developer workflow clearly distinguishes between the structural requirement of the name during scaffolding and the semantic requirement of the description in AI prompting.
+
+---
+
+## Section 5: Zero-Intervention Autonomous Remediation (Closing the Human-in-the-Loop Gap)
+
+### Q5.1: Do I need to run the AI prompt on each of these programs now?
+**Answer**: **NO. You do NOT need to run the AI prompt on each of these programs.**
+
+Running manual prompts across all existing projects is completely unnecessary for three fundamental reasons:
+1. **Infrastructure & Rules Are Already Distributed**:
+   - Running `./scripts/sync-standards.sh --all --auto` has already installed `AGENTS.md`, `.agents/rules/enforce-standards.md`, and the GitHub Actions CI workflows into every sibling repository.
+2. **Projects That Pass Are Finished**:
+   - Repositories like `990-explorer` already audit at `[PASS] All files adhere strictly to software standards` (33 files checked). Running an upgrade prompt there is 100% redundant.
+3. **Deterministic Auto-Remediation Handles the Rest**:
+   - Running `./scripts/sync-standards.sh --all --auto` with `--fix` automatically injected missing SPDX headers and injected the Universal Global UI Error Boundary into all discovered HTML Web UI files across all projects, passing compliance audits with zero human intervention.
+
+---
+
+### Q5.2: "I'm not going to add code to files. That's the AI programmer's responsibility. Figure out how to make them do this."
+**Answer**: **The human developer should NEVER manually write boilerplate, insert licenses, or inject error boundaries.** 
+
+We eliminate human code-editing through a **Two-Pillar Zero-Intervention Architecture**:
+
+```mermaid
+graph TD
+    subgraph Pillar 1: Automated Scripted Remediation (sync-standards.sh)
+        S1["sync-standards.sh --all --auto"] --> S2["check-compliance.py --fix"]
+        S2 -->|Auto-Injects| S3[SPDX AGPL-3.0 Headers]
+        S2 -->|Auto-Injects| S4["Universal Global UI Error Boundary in index.html"]
+        S2 -->|Auto-Stages| S5["Git Index: git add -u"]
+    end
+
+    subgraph Pillar 2: Autonomous Agent Self-Healing (Directive 13)
+        A1[Developer assigns regular task to Agent] --> A2["Agent runs check-compliance.py --fix"]
+        A2 -->|Finds & Heals Any Violation| A3[Auto-Remediate Missing Standard Boilerplate]
+        A3 -->|Passes Closed-Loop Verification| A4[Clean Task Completion]
+    end
+```
+
+1. **Pillar 1: Deterministic Scripted Auto-Remediation (`check-compliance.py --fix`)**:
+   - The compliance script itself contains AST and DOM auto-fixers. When `sync-standards.sh` runs, it automatically scans for missing headers or error boundaries and injects them deterministically into the files, staging the results in git. The human never touches code.
+2. **Pillar 2: Autonomous AI Agent First-Turn Mandate (Directive 13)**:
+   - When an AI agent is working on any coding task in the repository, Directive 13 explicitly forbids placing boilerplate burdens on the human:
+     > *"The human developer will NEVER manually edit boilerplate, inject licenses, or prompt the AI agent to fix standards compliance issues. It is the AI agent's sole engineering responsibility to maintain repository hygiene. Whenever invoked on ANY task in this repository, the AI agent MUST autonomously run the compliance validator (`check-compliance.py . --fix`) and resolve any missing headers or error boundaries before concluding any turn."*
+
+---
+
+### Q5.3: "Why does this have to be manual? Why can't it be included in an existing process?"
+**Answer**: **It is now completely integrated into two existing, automated processes.**
+
+Compliance is now enforced invisibly as part of your existing development loop:
+
+1. **The Synchronization Process (`sync-standards.sh`)**:
+   - When you synchronize standards (`./scripts/sync-standards.sh --all --auto`), the script runs `check-compliance.py --fix` in the background. It automatically detects missing SPDX headers and missing Global UI Error Boundaries, writes the fixes directly to disk, and stages them with `git add`.
+2. **The AI Agent Development Process (`AGENTS.md` & `.agents/rules/`)**:
+   - You never need to use a special "Standards Upgrade" prompt.
+   - When you prompt an AI agent for any regular task (e.g., *"Add a search filter to the UI"* or *"Fix the database connection"*), the agent's pre-flight and post-flight verification loop (Directive 13) autonomously audits and auto-remediates compliance before reporting completion.
+3. **The CI Pipeline Process (`.github/workflows/ci.yml`)**:
+   - Every push to GitHub runs the automated standards compliance check and secret scan. If any regression occurs, CI flags it immediately, forcing the agent to resolve it before code can merge.
+

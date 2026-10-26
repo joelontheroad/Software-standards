@@ -264,9 +264,16 @@ sync_single_project() {
         fi
     fi
 
-    # 9. Automated Git Staging (Eliminates 'fatal: ambiguous argument' on diffs)
+    # 9. Run compliance check and auto-remediate deterministic violations
+    echo "→ Running compliance audit with auto-remediation (--fix)..."
+    local audit_status=0
+    if [[ -n "$LOCAL_SOURCE" ]] && [[ -f "$LOCAL_SOURCE/scripts/check-compliance.py" ]]; then
+        python3 "$LOCAL_SOURCE/scripts/check-compliance.py" "$target" --fix || audit_status=$?
+    fi
+
+    # 10. Automated Git Staging (Eliminates 'fatal: ambiguous argument' on diffs and stages auto-fixes)
     if [[ "$is_git_repo" = true ]] && [[ "$DO_STAGE" = true ]]; then
-        echo "→ Staging standardized governance and workflow files in git..."
+        echo "→ Staging standardized governance, workflow, and remediated files in git..."
         git -C "$target" add -f .github/workflows/ci.yml .github/workflows/release.yml AGENTS.md .agents/ SECURITY.md .gitattributes 2>/dev/null || true
         if [[ -f "$target/.gitignore" ]]; then
             git -C "$target" add .gitignore 2>/dev/null || true
@@ -274,13 +281,7 @@ sync_single_project() {
         if [[ -f "$target/LICENSE" ]]; then
             git -C "$target" add LICENSE 2>/dev/null || true
         fi
-    fi
-
-    # 10. Run compliance check
-    echo "→ Running compliance audit on updated repository..."
-    local audit_status=0
-    if [[ -n "$LOCAL_SOURCE" ]] && [[ -f "$LOCAL_SOURCE/scripts/check-compliance.py" ]]; then
-        python3 "$LOCAL_SOURCE/scripts/check-compliance.py" "$target" || audit_status=$?
+        git -C "$target" add -u "*.html" 2>/dev/null || true
     fi
 
     if [[ "$audit_status" -eq 0 ]]; then
