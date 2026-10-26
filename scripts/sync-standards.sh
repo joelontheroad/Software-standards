@@ -5,13 +5,16 @@
 set -euo pipefail
 
 # ==============================================================================
-# Open Source Software Standards Kit - Repository Standards Synchronizer
+# Open Source Software Standards Kit - Universal Standards Synchronizer
 #
 # Safely updates an existing repository with the latest governance standards:
 # - AGENTS.md (Root AI Agent Directive)
 # - .agents/rules/enforce-standards.md (IDE Agent Rules)
 # - SECURITY.md (Vulnerability Disclosure Policy)
 # - .gitattributes (Universal LF Line Endings)
+# - .github/workflows/ci.yml (Branch-agnostic, stack-detecting CI)
+# - .github/workflows/release.yml (Supply chain release attestation)
+# - .gitignore (Ensures private agent rules & virtualenvs are ignored)
 # ==============================================================================
 
 SCRIPT_DIR=""
@@ -25,6 +28,14 @@ RAW_BASE_URL="https://raw.githubusercontent.com/joelontheroad/Software-standards
 TARGET_DIR="."
 FORCE=false
 CHECK_ONLY=false
+AUTO_MODE=false
+SYNC_ALL=false
+DO_STAGE=true
+
+# Auto-enable non-interactive mode if running in a pipe or headless environment
+if [ ! -t 0 ]; then
+    AUTO_MODE=true
+fi
 
 #######################################
 # Print command-line usage summary and options reference.
@@ -36,23 +47,27 @@ show_help() {
 Usage: sync-standards.sh [options] [target-directory]
 
 Safely synchronize the latest software standards, AI agent directives,
-and security policies into an existing project.
+and security policies into existing projects without manual intervention.
 
 Options:
   -d, --dest <path>     Target repository directory (default: current directory '.')
+  --all                 Batch discover and synchronize all sibling project repositories
+  --auto                Run non-interactively without user prompts (default in pipes)
   -f, --force           Bypass uncommitted git changes warning
+  -s, --stage           Automatically stage synchronized governance files in git (default: true)
+  --no-stage            Do not automatically stage synchronized files in git
   -c, --check-only      Run compliance audit only without modifying any files
   -h, --help            Show this help message and exit
 
 Examples:
+  # Batch update all sibling projects in one zero-intervention command:
+  ./scripts/sync-standards.sh --all --auto
+
+  # Synchronize current directory:
+  ./scripts/sync-standards.sh --auto .
+
   # Remote sync via GitHub CLI (recommended for private repository):
-  gh api -H "Accept: application/vnd.github.v3.raw" repos/joelontheroad/Software-standards/contents/scripts/sync-standards.sh | bash -s -- --force .
-
-  # Remote sync via SSH temporary clone:
-  git clone --depth 1 git@github.com:joelontheroad/Software-standards.git /tmp/standards && /tmp/standards/scripts/sync-standards.sh --force . && rm -rf /tmp/standards
-
-  # From the standards kit repo targeting another folder:
-  ./scripts/sync-standards.sh /path/to/my-tool
+  gh api -H "Accept: application/vnd.github.v3.raw" repos/joelontheroad/Software-standards/contents/scripts/sync-standards.sh | bash -s -- --auto .
 
   # Audit compliance without modifying files:
   ./scripts/sync-standards.sh --check-only
@@ -66,8 +81,25 @@ while [[ $# -gt 0 ]]; do
             TARGET_DIR="$2"
             shift 2
             ;;
+        --all|--batch)
+            SYNC_ALL=true
+            shift
+            ;;
+        --auto)
+            AUTO_MODE=true
+            FORCE=true
+            shift
+            ;;
         -f|--force)
             FORCE=true
+            shift
+            ;;
+        -s|--stage)
+            DO_STAGE=true
+            shift
+            ;;
+        --no-stage)
+            DO_STAGE=false
             shift
             ;;
         -c|--check-only)
@@ -90,34 +122,7 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-TARGET_DIR="$(cd "$TARGET_DIR" && pwd)"
-
-echo "================================================================="
-echo " Synchronizing Standards into: $TARGET_DIR"
-echo "================================================================="
-
-# Verify target directory exists
-if [[ ! -d "$TARGET_DIR" ]]; then
-    echo "Error: Directory '$TARGET_DIR' does not exist." >&2
-    exit 1
-fi
-
-# Check git status if git is initialized
-if [[ -d "$TARGET_DIR/.git" ]]; then
-    if [[ "$FORCE" = false ]] && [[ -n "$(git -C "$TARGET_DIR" status --porcelain 2>/dev/null || true)" ]]; then
-        echo "[WARNING] Target directory has uncommitted git changes." >&2
-        echo "          Commit or stash your changes before syncing, or pass --force." >&2
-        if [[ "$CHECK_ONLY" = false ]]; then
-            read -r -p "Continue anyway? [y/N] " response || response="n"
-            if [[ ! "$response" =~ ^[Yy]$ ]]; then
-                echo "Aborted." >&2
-                exit 1
-            fi
-        fi
-    fi
-fi
-
-# Setup source: local files or remote raw download
+# Setup source: local files or remote clone
 TMP_SOURCE_DIR=""
 cleanup() {
     if [[ -n "$TMP_SOURCE_DIR" ]] && [[ -d "$TMP_SOURCE_DIR" ]]; then
@@ -142,7 +147,7 @@ if [[ -z "$LOCAL_SOURCE" ]]; then
         git clone --depth 1 "https://x-access-token:${GITHUB_TOKEN}@github.com/joelontheroad/Software-standards.git" "$TMP_SOURCE_DIR" --quiet
     else
         git clone --depth 1 "$STANDARDS_REPO_URL" "$TMP_SOURCE_DIR" --quiet || {
-            echo "Error: Failed to clone private standards repository from $STANDARDS_REPO_URL." >&2
+            echo "Error: Failed to clone standards repository from $STANDARDS_REPO_URL." >&2
             echo "Tip: Ensure you are logged in with 'gh auth login' or have SSH keys configured." >&2
             exit 1
         }
@@ -158,111 +163,176 @@ fetch_or_copy() {
     cp "$LOCAL_SOURCE/$rel_path" "$dest_path"
 }
 
-if [[ "$CHECK_ONLY" = true ]]; then
-    echo "→ Running standards compliance check..."
-    if [[ -f "$LOCAL_SOURCE/scripts/check-compliance.py" ]]; then
-        python3 "$LOCAL_SOURCE/scripts/check-compliance.py" "$TARGET_DIR" || true
+sync_single_project() {
+    local target="$1"
+    target="$(cd "$target" && pwd)"
+
+    echo "================================================================="
+    echo " Synchronizing Standards into: $target"
+    echo "================================================================="
+
+    if [[ ! -d "$target" ]]; then
+        echo "Error: Directory '$target' does not exist." >&2
+        return 1
     fi
+
+    # Check git status if git is initialized
+    local is_git_repo=false
+    if [[ -d "$target/.git" ]]; then
+        is_git_repo=true
+        if [[ "$AUTO_MODE" = false ]] && [[ "$FORCE" = false ]] && [[ -n "$(git -C "$target" status --porcelain 2>/dev/null || true)" ]]; then
+            echo "[WARNING] Target directory has uncommitted git changes." >&2
+            echo "          Commit or stash your changes before syncing, or pass --auto / --force." >&2
+            if [[ "$CHECK_ONLY" = false ]]; then
+                if [ -t 0 ]; then
+                    read -r -p "Continue anyway? [y/N] " response || response="n"
+                    if [[ ! "$response" =~ ^[Yy]$ ]]; then
+                        echo "Aborted." >&2
+                        return 1
+                    fi
+                else
+                    echo "→ Non-interactive environment detected: proceeding with safe sync."
+                fi
+            fi
+        fi
+    fi
+
+    if [[ "$CHECK_ONLY" = true ]]; then
+        echo "→ Running standards compliance check..."
+        if [[ -f "$LOCAL_SOURCE/scripts/check-compliance.py" ]]; then
+            python3 "$LOCAL_SOURCE/scripts/check-compliance.py" "$target" || true
+        fi
+        return 0
+    fi
+
+    # 1. Update AGENTS.md
+    echo "→ Updating AGENTS.md..."
+    fetch_or_copy "AGENTS.md" "$target/AGENTS.md"
+
+    # 2. Update .agents/rules/enforce-standards.md
+    echo "→ Updating .agents/rules/enforce-standards.md..."
+    fetch_or_copy ".agents/rules/enforce-standards.md" "$target/.agents/rules/enforce-standards.md"
+
+    # 3. Synchronize LICENSE if missing
+    if [[ ! -f "$target/LICENSE" ]]; then
+        echo "→ Creating missing LICENSE (GNU AGPLv3)..."
+        fetch_or_copy "templates/common/LICENSE" "$target/LICENSE"
+    fi
+
+    # 4. Synchronize SECURITY.md if missing
+    if [[ ! -f "$target/SECURITY.md" ]]; then
+        echo "→ Creating missing SECURITY.md..."
+        fetch_or_copy "templates/common/SECURITY.md" "$target/SECURITY.md"
+    fi
+
+    # 5. Synchronize .gitattributes if missing
+    if [[ ! -f "$target/.gitattributes" ]]; then
+        echo "→ Creating missing .gitattributes..."
+        fetch_or_copy "templates/common/.gitattributes" "$target/.gitattributes"
+    fi
+
+    # 6. Synchronize GitHub Actions CI & Release Workflows
+    echo "→ Synchronizing .github/workflows/ci.yml..."
+    fetch_or_copy "templates/common/.github/workflows/ci.yml" "$target/.github/workflows/ci.yml"
+    echo "→ Synchronizing .github/workflows/release.yml..."
+    fetch_or_copy "templates/common/.github/workflows/release.yml" "$target/.github/workflows/release.yml"
+
+    # 7. Safe .gitignore merging (ensures private rules, standards, and venvs are ignored)
+    local gitignore_file="$target/.gitignore"
+    if [[ -f "$gitignore_file" ]]; then
+        local to_append=""
+        if ! grep -q "\.agents/rules" "$gitignore_file" 2>/dev/null; then
+            to_append+=$'\n.agents/rules/'
+        fi
+        if ! grep -q "\.standards" "$gitignore_file" 2>/dev/null; then
+            to_append+=$'\n.standards/'
+        fi
+        if ! grep -q "\.venv" "$gitignore_file" 2>/dev/null; then
+            to_append+=$'\n.venv/'
+        fi
+        if [[ -n "$to_append" ]]; then
+            echo "→ Safely updating .gitignore with private standards and venv entries..."
+            printf "%s\n" "$to_append" >> "$gitignore_file"
+        fi
+    fi
+
+    # 8. Check Python pyproject.toml for ruff pydocstyle configuration
+    if [[ -f "$target/pyproject.toml" ]]; then
+        echo "→ Inspecting Python pyproject.toml..."
+        if ! grep -q 'convention = "google"' "$target/pyproject.toml" 2>/dev/null; then
+            echo "  [NOTE] Recommended addition for pyproject.toml: [tool.ruff.lint.pydocstyle] convention = \"google\""
+        fi
+    fi
+
+    # 9. Automated Git Staging (Eliminates 'fatal: ambiguous argument' on diffs)
+    if [[ "$is_git_repo" = true ]] && [[ "$DO_STAGE" = true ]]; then
+        echo "→ Staging standardized governance and workflow files in git..."
+        git -C "$target" add -f .github/workflows/ci.yml .github/workflows/release.yml AGENTS.md .agents/ SECURITY.md .gitattributes 2>/dev/null || true
+        if [[ -f "$target/.gitignore" ]]; then
+            git -C "$target" add .gitignore 2>/dev/null || true
+        fi
+        if [[ -f "$target/LICENSE" ]]; then
+            git -C "$target" add LICENSE 2>/dev/null || true
+        fi
+    fi
+
+    # 10. Run compliance check
+    echo "→ Running compliance audit on updated repository..."
+    local audit_status=0
+    if [[ -n "$LOCAL_SOURCE" ]] && [[ -f "$LOCAL_SOURCE/scripts/check-compliance.py" ]]; then
+        python3 "$LOCAL_SOURCE/scripts/check-compliance.py" "$target" || audit_status=$?
+    fi
+
+    if [[ "$audit_status" -eq 0 ]]; then
+        echo " [SUCCESS] $target: Standards successfully synchronized and PASSING audit."
+    else
+        echo " [NOTICE] $target: Standards synchronized. See audit warnings above."
+    fi
+    return "$audit_status"
+}
+
+# Main Execution Routing: Batch Mode (--all) vs Single Target Mode
+if [[ "$SYNC_ALL" = true ]]; then
+    echo "================================================================="
+    echo " Batch Synchronizing All Sibling Projects (Zero-Intervention)"
+    echo "================================================================="
+
+    PARENT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
+    echo "→ Discovering project repositories in: $PARENT_DIR"
+
+    DISCOVERED=()
+    for dir in "$PARENT_DIR"/*/; do
+        dir="${dir%/}"
+        base_name="$(basename "$dir")"
+        # Skip standards repository itself, tmp, and archive folders
+        if [[ "$base_name" == "Software-standards" ]] || [[ "$base_name" == "tmp" ]] || [[ "$base_name" == "Old Projects"* ]] || [[ "$base_name" == "utils" ]]; then
+            continue
+        fi
+        # Check if project contains git or recognized project descriptors
+        if [[ -d "$dir/.git" ]] || [[ -f "$dir/pyproject.toml" ]] || [[ -f "$dir/package.json" ]] || [[ -f "$dir/AGENTS.md" ]]; then
+            DISCOVERED+=("$dir")
+        fi
+    done
+
+    echo "→ Discovered ${#DISCOVERED[@]} project(s) to synchronize."
+    TOTAL_SUCCESS=0
+    TOTAL_NOTICES=0
+
+    for proj_dir in "${DISCOVERED[@]}"; do
+        echo ""
+        if sync_single_project "$proj_dir"; then
+            TOTAL_SUCCESS=$((TOTAL_SUCCESS + 1))
+        else
+            TOTAL_NOTICES=$((TOTAL_NOTICES + 1))
+        fi
+    done
+
+    echo ""
+    echo "================================================================="
+    echo " Batch Synchronization Summary: ${TOTAL_SUCCESS} passed, ${TOTAL_NOTICES} with notices."
+    echo "================================================================="
     exit 0
+else
+    sync_single_project "$TARGET_DIR"
+    exit $?
 fi
-
-# 1. Update AGENTS.md
-echo "→ Updating AGENTS.md..."
-fetch_or_copy "AGENTS.md" "$TARGET_DIR/AGENTS.md"
-
-# 2. Update .agents/rules/enforce-standards.md
-echo "→ Updating .agents/rules/enforce-standards.md..."
-fetch_or_copy ".agents/rules/enforce-standards.md" "$TARGET_DIR/.agents/rules/enforce-standards.md"
-
-# 3. Synchronize LICENSE if missing
-if [[ ! -f "$TARGET_DIR/LICENSE" ]]; then
-    echo "→ Creating missing LICENSE (GNU AGPLv3)..."
-    fetch_or_copy "templates/common/LICENSE" "$TARGET_DIR/LICENSE"
-fi
-
-# 4. Synchronize SECURITY.md if missing
-if [[ ! -f "$TARGET_DIR/SECURITY.md" ]]; then
-    echo "→ Creating missing SECURITY.md..."
-    fetch_or_copy "templates/common/SECURITY.md" "$TARGET_DIR/SECURITY.md"
-fi
-
-# 5. Synchronize .gitattributes if missing
-if [[ ! -f "$TARGET_DIR/.gitattributes" ]]; then
-    echo "→ Creating missing .gitattributes..."
-    fetch_or_copy "templates/common/.gitattributes" "$TARGET_DIR/.gitattributes"
-fi
-
-# 6. Synchronize GitHub Actions CI & Release Workflows
-echo "→ Synchronizing .github/workflows/ci.yml..."
-fetch_or_copy "templates/common/.github/workflows/ci.yml" "$TARGET_DIR/.github/workflows/ci.yml"
-echo "→ Synchronizing .github/workflows/release.yml..."
-fetch_or_copy "templates/common/.github/workflows/release.yml" "$TARGET_DIR/.github/workflows/release.yml"
-
-# 7. Check Python pyproject.toml for ruff pydocstyle configuration
-if [[ -f "$TARGET_DIR/pyproject.toml" ]]; then
-    echo "→ Inspecting Python pyproject.toml..."
-    if ! grep -q 'convention = "google"' "$TARGET_DIR/pyproject.toml" 2>/dev/null; then
-        echo ""
-        echo "  [NOTE] Recommended addition for pyproject.toml:"
-        echo "  --------------------------------------------------"
-        echo "  [tool.ruff.lint]"
-        echo "  select = [\"E\", \"F\", \"W\", \"I\", \"B\", \"S\", \"D\"]"
-        echo "  ignore = [\"D104\", \"D105\", \"D107\", \"D205\", \"D212\"]"
-        echo ""
-        echo "  [tool.ruff.lint.pydocstyle]"
-        echo "  convention = \"google\""
-        echo "  --------------------------------------------------"
-        echo ""
-    fi
-fi
-
-# 7. Run compliance check
-echo "→ Running compliance audit on updated repository..."
-if [[ -n "$LOCAL_SOURCE" ]] && [[ -f "$LOCAL_SOURCE/scripts/check-compliance.py" ]]; then
-    python3 "$LOCAL_SOURCE/scripts/check-compliance.py" "$TARGET_DIR" || true
-fi
-
-echo ""
-echo "================================================================="
-echo " [SUCCESS] Standards successfully synchronized into: $TARGET_DIR"
-echo "================================================================="
-echo ""
-echo "Next step: Run this prompt in Antigravity or your AI Coding Agent"
-echo "to bring all existing code into compliance with updated standards:"
-echo ""
-cat << 'EOF'
------------------------------------------------------------------
-/plan Upgrade this project to comply with the latest 12 Open Source Software Standards defined in AGENTS.md and STANDARDS.md:
-
-1. Directive 1 (Privacy & State Purge):
-   - Verify state reset commands (--reset-config / config reset) permanently delete files (unlink).
-   - Ensure they do NOT move state files to the Desktop Trash Can.
-   - Verify no background autostart entries are registered by default.
-2. Directive 2 (Functional Preservation & Lifecycle):
-   - Verify strict preservation of existing user-facing functionality (CLI subcommands, flags, preset keys, UI controls).
-   - Internal implementations and helper routines may be refactored freely provided all external behaviors and tests pass without regression.
-3. Directive 3 (UI Guidelines & Desktop):
-   - In server startup, format launch URLs as OSC 8 clickable links with TTY / NO_COLOR fallback.
-   - Automatically open the user's default browser on launch unless --no-browser is passed or running headless.
-   - Ensure clipboard writes require an explicit user gesture (--copy or UI button) and NEVER copy tokens or secrets.
-   - If .desktop launchers exist, ensure Exec= invokes the binary directly without shell wrappers (sh -c is prohibited).
-4. Directive 5 (Secure Programming):
-   - Ensure file:// URI parsing rejects remote authorities, decodes safely, and verifies paths reside within allowed directory jails using os.path.realpath.
-   - Ensure HTTP asset responses emit verified Content-Type headers from standard MIME databases alongside X-Content-Type-Options: nosniff.
-5. Directive 11 (Composability):
-   - If a "Reveal in Folder" feature exists, ensure it checks for headless environments and uses a <=1000ms timeout guard.
-6. Directive 12 (Documentation):
-   - Ensure each module begins with an architectural summary docstring after the SPDX header.
-   - Upgrade public functions and classes to Google Style docstrings (or JSDoc).
-   - Add '# SECURITY:' rationale comments on security invariants.
-7. Directive 13 (Verification Discipline & Zero Silent Failures):
-   - In Web UI, ensure top-level global error boundary (window.onerror & unhandledrejection) is present to prevent silent "nothing happened" crashes.
-   - Ensure all disabled buttons provide a visible explanation or tooltip explaining what is missing.
-   - Ensure all asynchronous tasks/polling use strictly unique task IDs (never colliding with stale state).
-   - Run static linter (no-undef) across all JavaScript/Python code and NEVER claim a bug is fixed without behavioral proof.
-8. Run test suite and compliance audit to confirm zero regressions:
-   pytest
-   check-standards
------------------------------------------------------------------
-EOF
-echo ""

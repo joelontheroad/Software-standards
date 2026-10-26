@@ -211,3 +211,6 @@ The torchaudio wav2vec2 forced-alignment checkpoint for English (wav2vec2_fairse
 Passing model_dir=str(models_dir / "align") diverted torchaudio away from its default checkpoint repository to an empty directory.
 
 ---------------------------------
+/plan Updating should occur without error regardless of how the  target program was originally created.  You have enough experience to understand all the scenarios.
+
+Create an implementation plan that can handle any scenario without breaking and without user intervention.
